@@ -2,9 +2,11 @@
 official open-ai module to make api calls
 """
 import base64
+from io import BytesIO
 
 import openai
 import streamlit as st
+from gtts import gTTS
 from streamlit_chat import message
 
 openai.api_key = st.secrets["openai-api-key"]
@@ -111,11 +113,15 @@ def main():
         st.session_state.user.append(user_input)
         st.session_state.bot.append(output)
 
+    sound_file = BytesIO()
     if st.session_state["bot"]:
         st.markdown("<br><br>", unsafe_allow_html=True)
         for i in range(len(st.session_state["bot"])):
             message(st.session_state["user"][i], is_user=True, key=f"{str(i)}_user")
             message(st.session_state["bot"][i], key=str(i))
+            tts = gTTS(st.session_state["bot"][i], lang="en")
+            tts.write_to_fp(sound_file)
+            st.audio(sound_file)
 
 
 if __name__ == "__main__":

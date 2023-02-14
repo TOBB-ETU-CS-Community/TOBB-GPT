@@ -70,6 +70,7 @@ def get_speech():
     if speak:
         with my_mic as source:
             st.write("Say now!!!!")
+            r.adjust_for_ambient_noise(source)
             audio = r.listen(source)  # take voice input from the microphone
             user_input = r.recognize_google(audio)
             st.write(user_input)

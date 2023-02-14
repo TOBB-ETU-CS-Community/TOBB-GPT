@@ -1,8 +1,5 @@
 gTTS
 openai
-brew update
-brew install portaudio
-brew link --overwrite portaudio
 PyAudio
 SpeechRecognition
 streamlit

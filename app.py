@@ -60,22 +60,26 @@ def get_speech():
     Returns:
         str: user input text
     """
-    # st.write(s_r.Microphone.list_microphone_names())
+    # st.write()
     r = s_r.Recognizer()
-    my_mic = s_r.Microphone(
-        device_index=1
-    )  # my device index is 1, you have to put your device index
-    speak = st.button("Speak")
-    user_input = ""
-    if speak:
-        with my_mic as source:
-            st.write("Say now!!!!")
-            r.adjust_for_ambient_noise(source)
-            audio = r.listen(source)  # take voice input from the microphone
-            user_input = r.recognize_google(audio)
-            st.write(user_input)
-            st.session_state.audio_recorded = True
-    return user_input
+    mics = s_r.Microphone.list_microphone_names()
+    choice = st.selectbox("Select the microphone", ["None"] + mics)
+    if choice != "None":
+        device_index = mics.index(choice)
+        my_mic = s_r.Microphone(
+            device_index=device_index
+        )  # my device index is 1, you have to put your device index
+        speak = st.button("Speak")
+        user_input = ""
+        if speak:
+            with my_mic as source:
+                st.write("Say now!!!!")
+                r.adjust_for_ambient_noise(source)
+                audio = r.listen(source)  # take voice input from the microphone
+                user_input = r.recognize_google(audio)
+                st.write(user_input)
+                st.session_state.audio_recorded = True
+        return user_input
 
 
 def add_bg_from_local(background_file, sidebar_background_file):

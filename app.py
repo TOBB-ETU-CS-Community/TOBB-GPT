@@ -5,6 +5,7 @@ import base64
 from io import BytesIO
 
 import openai
+import speech_recognition as s_r
 import streamlit as st
 from gtts import gTTS
 from streamlit_chat import message
@@ -18,7 +19,14 @@ if "user" not in st.session_state:
 if "bot" not in st.session_state:
     st.session_state.bot = []
 
+if "audio_recorded" not in st.session_state:
+    st.session_state.audio_recorded = False
 
+if "text_received" not in st.session_state:
+    st.session_state.text_received = False
+
+
+@st.cache
 def generate_response(prompt: str = "I have no question", creativity: float = 5):
     """
     Args:
@@ -43,7 +51,30 @@ def get_text():
     Returns:
         str: user input text
     """
+    st.session_state.text_received = True
     return st.text_input("You: ", "Hello, how are you?", key="input")
+
+
+def get_speech():
+    """
+    Returns:
+        str: user input text
+    """
+    # st.write(s_r.Microphone.list_microphone_names())
+    r = s_r.Recognizer()
+    my_mic = s_r.Microphone(
+        device_index=1
+    )  # my device index is 1, you have to put your device index
+    speak = st.button("Speak")
+    user_input = ""
+    if speak:
+        with my_mic as source:
+            st.write("Say now!!!!")
+            audio = r.listen(source)  # take voice input from the microphone
+            user_input = r.recognize_google(audio)
+            st.write(user_input)
+            st.session_state.audio_recorded = True
+    return user_input
 
 
 def add_bg_from_local(background_file, sidebar_background_file):
@@ -100,14 +131,20 @@ def main():
     st.markdown(
         "<center><h1>Sigma ChatBot</h1></center> <br> <br>", unsafe_allow_html=True
     )
+    user_input = ""
 
-    user_input = get_text()
+    chosen_way = st.radio("How do you want to ask the questions?", ("Text", "Speech"))
+    if chosen_way == "Text":
+        user_input = get_text()
+    elif chosen_way == "Speech":
+        user_input = get_speech()
+
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3, col4, col5 = st.columns(5)
     with col5:
         answer = st.button("Answer")
-
-    if answer:
+    if answer and (st.session_state.text_received or st.session_state.audio_recorded):
+        st.session_state.text_received, st.session_state.audio_recorded = False, False
         output = generate_response(user_input, creativity)
         # store the output
         st.session_state.user.append(user_input)

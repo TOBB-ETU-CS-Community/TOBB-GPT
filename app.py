@@ -148,22 +148,26 @@ def main():
     col1, col2, col3, col4, col5 = st.columns(5)
     with col5:
         answer = st.button("Answer")
-    if answer and (st.session_state.text_received or st.session_state.audio_recorded):
-        st.session_state.text_received, st.session_state.audio_recorded = False, False
-        output = generate_response(user_input, creativity)
-        # store the output
-        st.session_state.user.append(user_input)
-        st.session_state.bot.append(output)
+    try:
+        if answer and (st.session_state.text_received or st.session_state.audio_recorded):
+            st.session_state.text_received, st.session_state.audio_recorded = False, False
+            output = generate_response(user_input, creativity)
+            # store the output
+            st.session_state.user.append(user_input)
+            st.session_state.bot.append(output)
 
-    sound_file = BytesIO()
-    if st.session_state["bot"]:
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        for i in range(len(st.session_state["bot"])):
-            message(st.session_state["user"][i], is_user=True, key=f"{str(i)}_user")
-            message(st.session_state["bot"][i], key=str(i))
-            tts = gTTS(st.session_state["bot"][i], lang="en")
-            tts.write_to_fp(sound_file)
-            st.audio(sound_file)
+        sound_file = BytesIO()
+        if st.session_state["bot"]:
+            st.markdown("<br><br>", unsafe_allow_html=True)
+            for i in range(len(st.session_state["bot"])):
+                message(st.session_state["user"][i], is_user=True, key=f"{str(i)}_user")
+                message(st.session_state["bot"][i], key=str(i))
+                tts = gTTS(st.session_state["bot"][i], lang="en")
+                tts.write_to_fp(sound_file)
+                st.audio(sound_file)
+    except Exception as e:
+        st.write("An error occurred: " + type(e).__name__)
+        st.write("\nPleae wait while we are solving the problem. Thank you ;]")
 
 
 if __name__ == "__main__":

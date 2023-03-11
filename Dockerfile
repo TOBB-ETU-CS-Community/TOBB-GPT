@@ -1,14 +1,12 @@
 FROM python:3.10-slim
 
-EXPOSE 8501
+WORKDIR /Sigma-Chatbot
 
-WORKDIR /app
-
-COPY requirements.txt ./requirements.txt
+COPY . .
 
 RUN pip install --upgrade pip \
     &&  pip install --requirement requirements.txt
 
-COPY . .
+EXPOSE 8501
 
-CMD ["streamlit", "run", "app.py"]
+ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]

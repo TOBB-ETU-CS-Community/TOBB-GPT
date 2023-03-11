@@ -1,6 +1,4 @@
 gTTS
 openai
-PyAudio
-SpeechRecognition
 streamlit
 streamlit-chat

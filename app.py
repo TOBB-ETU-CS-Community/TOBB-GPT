@@ -5,7 +5,7 @@ import base64
 from io import BytesIO
 
 import openai
-import speech_recognition as s_r
+#import speech_recognition as s_r
 import streamlit as st
 from gtts import gTTS
 from streamlit_chat import message
@@ -53,33 +53,6 @@ def get_text():
     """
     st.session_state.text_received = True
     return st.text_input("You: ", "Hello, how are you?", key="input")
-
-
-def get_speech():
-    """
-    Returns:
-        str: user input text
-    """
-    # st.write()
-    r = s_r.Recognizer()
-    mics = s_r.Microphone.list_microphone_names()
-    choice = st.selectbox("Select the microphone", ["None"] + mics)
-    if choice != "None":
-        device_index = mics.index(choice)
-        my_mic = s_r.Microphone(
-            device_index=device_index
-        )  # my device index is 1, you have to put your device index
-        speak = st.button("Speak")
-        user_input = ""
-        if speak:
-            with my_mic as source:
-                st.write("Say now!!!!")
-                r.adjust_for_ambient_noise(source)
-                audio = r.listen(source)  # take voice input from the microphone
-                user_input = r.recognize_google(audio)
-                st.write(user_input)
-                st.session_state.audio_recorded = True
-        return user_input
 
 
 def add_bg_from_local(background_file, sidebar_background_file):
@@ -142,7 +115,8 @@ def main():
     if chosen_way == "Text":
         user_input = get_text()
     elif chosen_way == "Speech":
-        user_input = get_speech()
+        #user_input = get_speech()
+        pass
 
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3, col4, col5 = st.columns(5)

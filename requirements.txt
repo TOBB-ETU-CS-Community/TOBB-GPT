@@ -2,5 +2,4 @@ gTTS
 openai
 streamlit
 streamlit-chat
-sounddevice
-scipy
+audio-recorder-streamlit

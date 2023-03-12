@@ -7,10 +7,11 @@ from io import BytesIO
 import openai
 import streamlit as st
 from streamlit_chat import message
-import sounddevice as sd
-from scipy.io.wavfile import write
+#import sounddevice as sd
+#from scipy.io.wavfile import write
 import requests
 import json
+from audio_recorder_streamlit import audio_recorder
 
 openai.api_key = st.secrets["openai-api-key"]
 azure_key = st.secrets["azure-s2t-key"]
@@ -57,11 +58,17 @@ def get_text():
     st.session_state.text_received = True
     return st.text_input("You: ", "Hello, how are you?", key="input")
 
-def get_speech(subscription_key:str, seconds:int=5):
-    fs = 44100  # Sample rate
-    myrecording = sd.rec(int(seconds * fs), samplerate=fs, channels=2)
-    sd.wait()  # Wait until recording is finished
-    write('output.wav', fs, myrecording)  # Save as WAV file
+
+def get_speech():
+    audio_bytes = audio_recorder()
+    if audio_bytes:
+        #st.audio(audio_bytes, format="audio/wav")
+        #write('output.wav', 44100, audio_bytes)
+        with open('output.wav', mode='bw') as f:
+            f.write(audio_bytes)
+
+
+def speech2text(subscription_key):
     url = "https://eastus.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US"
     headers = {
     'Content-type': 'audio/wav;codec="audio/pcm";',
@@ -144,10 +151,9 @@ def main():
     if chosen_way == "Text":
         user_input = get_text()
     elif chosen_way == "Speech":
-        seconds = st.number_input("Please select the seconds you want to talk:", value=5)
-        if st.button("Speak"):
-            user_input = get_speech(azure_key, seconds)
-            st.write(user_input)
+        get_speech()
+        user_input = speech2text(azure_key)
+        st.write(user_input)
 
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3, col4, col5 = st.columns(5)

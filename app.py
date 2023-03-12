@@ -5,12 +5,15 @@ import base64
 from io import BytesIO
 
 import openai
-#import speech_recognition as s_r
 import streamlit as st
-from gtts import gTTS
 from streamlit_chat import message
+import sounddevice as sd
+from scipy.io.wavfile import write
+import requests
+import json
 
 openai.api_key = st.secrets["openai-api-key"]
+azure_key = st.secrets["azure-s2t-key"]
 
 # Storing the chat
 if "user" not in st.session_state:
@@ -53,6 +56,32 @@ def get_text():
     """
     st.session_state.text_received = True
     return st.text_input("You: ", "Hello, how are you?", key="input")
+
+def get_speech(subscription_key:str, seconds:int=5):
+    fs = 44100  # Sample rate
+    myrecording = sd.rec(int(seconds * fs), samplerate=fs, channels=2)
+    sd.wait()  # Wait until recording is finished
+    write('output.wav', fs, myrecording)  # Save as WAV file
+    url = "https://eastus.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US"
+    headers = {
+    'Content-type': 'audio/wav;codec="audio/pcm";',
+    #'Ocp-Apim-Subscription-Key': subscription_key,
+    'Authorization': get_token(subscription_key)
+    }
+    with open('output.wav','rb') as payload:
+        response = requests.request("POST", url, headers=headers, data=payload)
+        text = json.loads(response.text)
+        return text["DisplayText"]
+
+
+def get_token(subscription_key):
+    fetch_token_url = 'https://eastus.api.cognitive.microsoft.com/sts/v1.0/issueToken'
+    headers = {
+        'Ocp-Apim-Subscription-Key': subscription_key
+    }
+    response = requests.post(fetch_token_url, headers=headers)
+    access_token = str(response.text)
+    return access_token
 
 
 def add_bg_from_local(background_file, sidebar_background_file):
@@ -115,8 +144,10 @@ def main():
     if chosen_way == "Text":
         user_input = get_text()
     elif chosen_way == "Speech":
-        #user_input = get_speech()
-        pass
+        seconds = st.number_input("Please select the seconds you want to talk:", value=5)
+        if st.button("Speak"):
+            user_input = get_speech(azure_key, seconds)
+            st.write(user_input)
 
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -136,9 +167,9 @@ def main():
             for i in range(len(st.session_state["bot"])):
                 message(st.session_state["user"][i], is_user=True, key=f"{str(i)}_user")
                 message(st.session_state["bot"][i], key=str(i))
-                tts = gTTS(st.session_state["bot"][i], lang="en")
-                tts.write_to_fp(sound_file)
-                st.audio(sound_file)
+                #tts = gTTS(st.session_state["bot"][i], lang="en")
+                #tts.write_to_fp(sound_file)
+                #st.audio(sound_file)
     except Exception as e:
         st.write("An error occurred: " + type(e).__name__)
         st.write("\nPleae wait while we are solving the problem. Thank you ;]")

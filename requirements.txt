@@ -3,3 +3,4 @@ openai
 streamlit
 streamlit-chat
 sounddevice
+scipy

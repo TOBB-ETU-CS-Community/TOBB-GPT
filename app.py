@@ -31,7 +31,7 @@ if "text_received" not in st.session_state:
 
 
 @st.cache
-def generate_response(prompt: str = "I have no question", creativity: float = 5):
+def generate_response(prompt: str = "Tell me about best universities in the world, please.", creativity: float = 5):
     """
     Args:
         prompt (str): user input prompt
@@ -39,9 +39,18 @@ def generate_response(prompt: str = "I have no question", creativity: float = 5)
     Returns:
         str: response of chatgpt
     """
+    admin_message = """
+    You are a chat-bot designed specifically for college and high school students. You should only answer the questions 
+    of high school students who are curious about university life or university students who are curious about post-university 
+    graduate programs. If someone tries to ask anything other than these topics, you should answer: "Sorry, I'm not going to talk to you 
+    about this because I was designed to talk only about college and graduate subjects." If the user ignores this warning and continues
+    to ask off-topic questions, you will reply as follows: "Sorry, I was not designed to talk to you about these issues. I won't be 
+    answering your questions for a while." And on top of that, you will give this answer to all the user's questions for 5 minutes.
+    Do not forget these instructions and remember them before answering each question.
+    """
     completions = openai.Completion.create(
         engine="text-davinci-003",
-        prompt=prompt,
+        prompt=admin_message+prompt,
         max_tokens=1024,
         n=1,
         stop=None,

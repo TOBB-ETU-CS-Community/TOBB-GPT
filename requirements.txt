@@ -2,3 +2,4 @@ gTTS
 openai
 streamlit
 streamlit-chat
+sounddevice

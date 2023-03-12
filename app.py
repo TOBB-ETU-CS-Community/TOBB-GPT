@@ -66,6 +66,8 @@ def get_speech():
         #write('output.wav', 44100, audio_bytes)
         with open('output.wav', mode='bw') as f:
             f.write(audio_bytes)
+            return True
+    return False
 
 
 def speech2text(subscription_key):
@@ -151,9 +153,9 @@ def main():
     if chosen_way == "Text":
         user_input = get_text()
     elif chosen_way == "Speech":
-        get_speech()
-        user_input = speech2text(azure_key)
-        st.write(user_input)
+        if get_speech():
+            user_input = speech2text(azure_key)
+            st.write(user_input)
 
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3, col4, col5 = st.columns(5)

@@ -30,13 +30,20 @@ if "text_received" not in st.session_state:
 
 
 @st.cache
-def generate_response(prompt: str = "Tell me about best universities in the world, please.", creativity: float = 5):
-    """
-    Args:
-        prompt (str): user input prompt
+def generate_response(prompt: str = "Tell me about best universities in the world, please.", creativity: int = 5) -> str:
+    """generates response with openai models
 
-    Returns:
-        str: response of chatgpt
+    Parameters
+    ----------
+    prompt : str
+        User input.
+    creativity: int
+        The amount of randomness that user wants.
+
+    Returns
+    -------
+    str
+        Answer of openai model
     """
     admin_message = """
     You are a chat-bot designed specifically for college and high school students. You should only answer the questions 
@@ -58,16 +65,35 @@ def generate_response(prompt: str = "Tell me about best universities in the worl
     return completions.choices[0].text
 
 
-def get_text():
-    """
-    Returns:
-        str: user input text
+def get_text(prompt:str="Hello, how are you?") -> str:
+    """generates a message for the conversation
+
+    Parameters
+    ----------
+    prompt : str
+        Default message.
+
+    Returns
+    -------
+    str
+        User input for prompting the model
     """
     st.session_state.text_received = True
-    return st.text_input("You: ", "Hello, how are you?", key="input")
+    return st.text_input("You: ", prompt, key="input")
 
 
-def get_speech():
+def get_speech() -> bool:
+    """takes user voice input
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    bool
+        True if user voice is taken successfully else False
+    """
     audio_bytes = audio_recorder()
     if audio_bytes:
         #st.audio(audio_bytes, format="audio/wav")
@@ -78,7 +104,19 @@ def get_speech():
     return False
 
 
-def speech2text(subscription_key):
+def speech2text(subscription_key) -> str:
+    """convert speech to text
+
+    Parameters
+    ----------
+    subscription_key : str
+        Openai api key
+
+    Returns
+    -------
+    str
+        Text generated from speech
+    """
     url = "https://eastus.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US"
     headers = {
     'Content-type': 'audio/wav;codec="audio/pcm";',
@@ -92,7 +130,19 @@ def speech2text(subscription_key):
             return text["DisplayText"]
 
 
-def get_token(subscription_key):
+def get_token(subscription_key) -> str:
+    """get access token for the given subscription key
+
+    Parameters
+    ----------
+    subscription_key : str
+        Openai api key
+
+    Returns
+    -------
+    str
+        access token
+    """
     fetch_token_url = 'https://eastus.api.cognitive.microsoft.com/sts/v1.0/issueToken'
     headers = {
         'Ocp-Apim-Subscription-Key': subscription_key
@@ -102,7 +152,20 @@ def get_token(subscription_key):
     return access_token
 
 
-def add_bg_from_local(background_file, sidebar_background_file):
+def add_bg_from_local(background_file:str, sidebar_background_file:str) -> None:
+    """set the background images
+
+    Parameters
+    ----------
+    background_file : str
+        path to the background
+    background_file : str
+        path to the sidebar background
+
+    Returns
+    -------
+    None
+    """
     with open(background_file, "rb") as image_file:
         encoded_string = base64.b64encode(image_file.read())
     with open(sidebar_background_file, "rb") as image_file:
@@ -122,6 +185,7 @@ def add_bg_from_local(background_file, sidebar_background_file):
     </style>"""
 
     st.markdown(page, unsafe_allow_html=True)
+    return
 
 
 def main():

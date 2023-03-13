@@ -89,7 +89,8 @@ def speech2text(subscription_key):
     with open('output.wav','rb') as payload:
         response = requests.request("POST", url, headers=headers, data=payload)
         text = json.loads(response.text)
-        return text["DisplayText"]
+        if "DisplayText" in text.keys():
+            return text["DisplayText"]
 
 
 def get_token(subscription_key):
@@ -137,7 +138,7 @@ def main():
         },
     )
 
-    add_bg_from_local("data/main.png", "data/sidebar.png")
+    add_bg_from_local("../../data/main.png", "../../data/sidebar.png")
 
     st.sidebar.markdown(
         "<center><h3>Configurations for ChatBot</h3></center> <br> <br>",

@@ -7,11 +7,10 @@ from io import BytesIO
 import openai
 import streamlit as st
 from streamlit_chat import message
-#import sounddevice as sd
-#from scipy.io.wavfile import write
 import requests
 import json
 from audio_recorder_streamlit import audio_recorder
+import azure.cognitiveservices.speech as sdk
 
 openai.api_key = st.secrets["openai-api-key"]
 azure_key = st.secrets["azure-s2t-key"]
@@ -171,6 +170,14 @@ def main():
     col1, col2, col3, col4, col5 = st.columns(5)
     with col5:
         answer = st.button("Answer")
+    key = azure_key
+    region = "eastus"
+    config = sdk.SpeechConfig(subscription=key, region=region)
+    synthesizer = sdk.SpeechSynthesizer(speech_config=config)
+    input_text = st.text_input("Please write a text to convert it to a speech:")
+    if st.button("test azure text to speech") and input_text is not None:
+        synthesizer.speak_text(input_text)
+
     try:
         if answer and (st.session_state.text_received or st.session_state.audio_recorded):
             st.session_state.text_received, st.session_state.audio_recorded = False, False
@@ -185,6 +192,7 @@ def main():
             for i in range(len(st.session_state["bot"])):
                 message(st.session_state["user"][i], is_user=True, key=f"{str(i)}_user")
                 message(st.session_state["bot"][i], key=str(i))
+                synthesizer.speak_text(st.session_state["bot"][i])
                 #tts = gTTS(st.session_state["bot"][i], lang="en")
                 #tts.write_to_fp(sound_file)
                 #st.audio(sound_file)

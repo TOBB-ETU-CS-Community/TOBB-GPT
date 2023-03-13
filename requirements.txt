@@ -1,4 +1,4 @@
-gTTS
+azure.cognitiveservices.speech
 openai
 streamlit
 streamlit-chat

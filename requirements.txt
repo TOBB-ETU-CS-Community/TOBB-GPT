@@ -1,7 +1,5 @@
 audio-recorder-streamlit
 azure.cognitiveservices.speech
-libasound2
-libssl-dev
 openai
 streamlit
 streamlit-chat

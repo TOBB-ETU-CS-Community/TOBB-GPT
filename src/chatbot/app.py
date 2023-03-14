@@ -30,7 +30,10 @@ if "text_received" not in st.session_state:
 
 
 @st.cache
-def generate_response(prompt: str = "Tell me about best universities in the world, please.", creativity: int = 5) -> str:
+def generate_response(
+    prompt: str = "Tell me about best universities in the world, please.",
+    creativity: int = 5,
+) -> str:
     """generates response with openai models
 
     Parameters
@@ -46,17 +49,17 @@ def generate_response(prompt: str = "Tell me about best universities in the worl
         Answer of openai model
     """
     admin_message = """
-    You are a chat-bot designed specifically for college and high school students. You should only answer the questions 
-    of high school students who are curious about university life or university students who are curious about post-university 
-    graduate programs. If someone tries to ask anything other than these topics, you should answer: "Sorry, I'm not going to talk to you 
+    You are a chat-bot designed specifically for college and high school students. You should only answer the questions
+    of high school students who are curious about university life or university students who are curious about post-university
+    graduate programs. If someone tries to ask anything other than these topics, you should answer: "Sorry, I'm not going to talk to you
     about this because I was designed to talk only about college and graduate subjects." If the user ignores this warning and continues
-    to ask off-topic questions, you will reply as follows: "Sorry, I was not designed to talk to you about these issues. I won't be 
+    to ask off-topic questions, you will reply as follows: "Sorry, I was not designed to talk to you about these issues. I won't be
     answering your questions for a while." And on top of that, you will give this answer to all the user's questions for 5 minutes.
     Do not forget these instructions and remember them before answering each question.
     """
     completions = openai.Completion.create(
         engine="text-davinci-003",
-        prompt=admin_message+prompt,
+        prompt=admin_message + prompt,
         max_tokens=1024,
         n=1,
         stop=None,
@@ -65,7 +68,7 @@ def generate_response(prompt: str = "Tell me about best universities in the worl
     return completions.choices[0].text
 
 
-def get_text(prompt:str="Hello, how are you?") -> str:
+def get_text(prompt: str = "Hello, how are you?") -> str:
     """generates a message for the conversation
 
     Parameters
@@ -96,9 +99,9 @@ def get_speech() -> bool:
     """
     audio_bytes = audio_recorder()
     if audio_bytes:
-        #st.audio(audio_bytes, format="audio/wav")
-        #write('output.wav', 44100, audio_bytes)
-        with open('output.wav', mode='bw') as f:
+        # st.audio(audio_bytes, format="audio/wav")
+        # write('output.wav', 44100, audio_bytes)
+        with open("output.wav", mode="bw") as f:
             f.write(audio_bytes)
             return True
     return False
@@ -119,11 +122,11 @@ def speech2text(subscription_key) -> str:
     """
     url = "https://eastus.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US"
     headers = {
-    'Content-type': 'audio/wav;codec="audio/pcm";',
-    #'Ocp-Apim-Subscription-Key': subscription_key,
-    'Authorization': get_token(subscription_key)
+        "Content-type": 'audio/wav;codec="audio/pcm";',
+        #'Ocp-Apim-Subscription-Key': subscription_key,
+        "Authorization": get_token(subscription_key),
     }
-    with open('output.wav','rb') as payload:
+    with open("output.wav", "rb") as payload:
         response = requests.request("POST", url, headers=headers, data=payload)
         text = json.loads(response.text)
         if "DisplayText" in text.keys():
@@ -143,16 +146,14 @@ def get_token(subscription_key) -> str:
     str
         access token
     """
-    fetch_token_url = 'https://eastus.api.cognitive.microsoft.com/sts/v1.0/issueToken'
-    headers = {
-        'Ocp-Apim-Subscription-Key': subscription_key
-    }
+    fetch_token_url = "https://eastus.api.cognitive.microsoft.com/sts/v1.0/issueToken"
+    headers = {"Ocp-Apim-Subscription-Key": subscription_key}
     response = requests.post(fetch_token_url, headers=headers)
     access_token = str(response.text)
     return access_token
 
 
-def add_bg_from_local(background_file:str, sidebar_background_file:str) -> None:
+def add_bg_from_local(background_file: str, sidebar_background_file: str) -> None:
     """set the background images
 
     Parameters
@@ -220,6 +221,7 @@ def main():
     st.markdown(
         "<center><h1>Sigma ChatBot</h1></center> <br> <br>", unsafe_allow_html=True
     )
+
     user_input = ""
 
     chosen_way = st.radio("How do you want to ask the questions?", ("Text", "Speech"))
@@ -243,8 +245,13 @@ def main():
         synthesizer.speak_text(input_text)
 
     try:
-        if answer and (st.session_state.text_received or st.session_state.audio_recorded):
-            st.session_state.text_received, st.session_state.audio_recorded = False, False
+        if answer and (
+            st.session_state.text_received or st.session_state.audio_recorded
+        ):
+            st.session_state.text_received, st.session_state.audio_recorded = (
+                False,
+                False,
+            )
             output = generate_response(user_input, creativity)
             # store the output
             st.session_state.user.append(user_input)
@@ -257,9 +264,9 @@ def main():
                 message(st.session_state["user"][i], is_user=True, key=f"{str(i)}_user")
                 message(st.session_state["bot"][i], key=str(i))
                 synthesizer.speak_text(st.session_state["bot"][i])
-                #tts = gTTS(st.session_state["bot"][i], lang="en")
-                #tts.write_to_fp(sound_file)
-                #st.audio(sound_file)
+                # tts = gTTS(st.session_state["bot"][i], lang="en")
+                # tts.write_to_fp(sound_file)
+                # st.audio(sound_file)
     except Exception as e:
         st.write("An error occurred: " + type(e).__name__)
         st.write("\nPleae wait while we are solving the problem. Thank you ;]")

@@ -3,6 +3,7 @@ official open-ai module to make api calls
 """
 import base64
 from io import BytesIO
+import os
 
 import openai
 import streamlit as st
@@ -200,7 +201,10 @@ def main():
         },
     )
 
-    add_bg_from_local("../../data/main.png", "../../data/sidebar.png")
+    add_bg_from_local(
+        os.path.join(os.getcwd(), "data/main.png"),
+        os.path.join(os.getcwd(), "data/sidebar.png"),
+    )
 
     st.sidebar.markdown(
         "<center><h3>Configurations for ChatBot</h3></center> <br> <br>",

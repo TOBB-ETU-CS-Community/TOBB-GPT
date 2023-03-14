@@ -97,8 +97,7 @@ def get_speech() -> bool:
     bool
         True if user voice is taken successfully else False
     """
-    audio_bytes = audio_recorder()
-    if audio_bytes:
+    if audio_bytes := audio_recorder():
         # st.audio(audio_bytes, format="audio/wav")
         # write('output.wav', 44100, audio_bytes)
         with open("output.wav", mode="bw") as f:
@@ -149,8 +148,7 @@ def get_token(subscription_key) -> str:
     fetch_token_url = "https://eastus.api.cognitive.microsoft.com/sts/v1.0/issueToken"
     headers = {"Ocp-Apim-Subscription-Key": subscription_key}
     response = requests.post(fetch_token_url, headers=headers)
-    access_token = str(response.text)
-    return access_token
+    return str(response.text)
 
 
 def add_bg_from_local(background_file: str, sidebar_background_file: str) -> None:
@@ -221,7 +219,6 @@ def main():
     st.markdown(
         "<center><h1>Sigma ChatBot</h1></center> <br> <br>", unsafe_allow_html=True
     )
-
     user_input = ""
 
     chosen_way = st.radio("How do you want to ask the questions?", ("Text", "Speech"))
@@ -268,7 +265,7 @@ def main():
                 # tts.write_to_fp(sound_file)
                 # st.audio(sound_file)
     except Exception as e:
-        st.write("An error occurred: " + type(e).__name__)
+        st.write(f"An error occurred: {type(e).__name__}")
         st.write("\nPleae wait while we are solving the problem. Thank you ;]")
 
 

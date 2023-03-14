@@ -1,3 +1,5 @@
+[![Sourcery](https://img.shields.io/badge/Sourcery-enabled-brightgreen)](https://sourcery.ai)
+
 # Sigma-Chatbot
 It is a chatbot which is specially designed for university students
 

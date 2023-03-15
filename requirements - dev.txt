@@ -1,0 +1,9 @@
+audio_recorder_streamlit==0.0.8
+azure-cognitiveservices-speech
+black
+openai==0.26.4
+pre-commit
+requests==2.28.2
+sourcery
+streamlit==1.17.0
+streamlit_chat==0.0.2.1

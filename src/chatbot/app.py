@@ -245,10 +245,8 @@ def main():
     #synthesizer = sdk.SpeechSynthesizer(speech_config=config)
     input_text = st.text_input("Please write a text to convert it to a speech:")
     if st.button("test azure text to speech") and input_text is not None:
-        result = speech_synthesizer.speak_text_async(input_text).get()
-        audio_stream = BytesIO(result.getAudioData())
-        audio_segment = AudioSegment.from_file(audio_stream, format="mp3")
-        st.audio(audio_segment.export(format="mp3"), format="audio/mp3")
+        result = speech_synthesizer.speak_text(input_text)
+        st.audio(result.audio_data)
         #audioStream = sdk.AudioDataStream(result)
         #display(audioElement)
         

@@ -4,7 +4,6 @@ official open-ai module to make api calls
 import base64
 from io import BytesIO
 import os
-
 import openai
 import streamlit as st
 from streamlit_chat import message
@@ -240,10 +239,17 @@ def main():
         answer = st.button("Answer")
     key = azure_key
     config = sdk.SpeechConfig(subscription=key, region=region)
-    synthesizer = sdk.SpeechSynthesizer(speech_config=config)
+    config.speech_synthesis_language = "en-US"
+    config.speech_synthesis_voice_name='en-US-JennyNeural'
+    speech_synthesizer = sdk.SpeechSynthesizer(speech_config=config, audio_config=None)
+    #synthesizer = sdk.SpeechSynthesizer(speech_config=config)
     input_text = st.text_input("Please write a text to convert it to a speech:")
     if st.button("test azure text to speech") and input_text is not None:
-        synthesizer.speak_text(input_text)
+        result = speech_synthesizer.speak_text(input_text)
+        st.audio(result.audio_data)
+        #audioStream = sdk.AudioDataStream(result)
+        #display(audioElement)
+        
 
     try:
         if answer and (
@@ -264,7 +270,8 @@ def main():
             for i in range(len(st.session_state["bot"])):
                 message(st.session_state["user"][i], is_user=True, key=f"{str(i)}_user")
                 message(st.session_state["bot"][i], key=str(i))
-                synthesizer.speak_text(st.session_state["bot"][i])
+                result = speech_synthesizer.speak_text(st.session_state["bot"][i])
+                st.audio(result.audio_data)
                 # tts = gTTS(st.session_state["bot"][i], lang="en")
                 # tts.write_to_fp(sound_file)
                 # st.audio(sound_file)

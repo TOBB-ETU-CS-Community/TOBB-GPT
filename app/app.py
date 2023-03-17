@@ -106,7 +106,7 @@ def get_speech() -> bool:
     return False
 
 
-def speech2text(subscription_key,region) -> str:
+def speech2text(subscription_key, region) -> str:
     """convert speech to text
 
     Parameters
@@ -123,7 +123,7 @@ def speech2text(subscription_key,region) -> str:
     headers = {
         "Content-type": 'audio/wav;codec="audio/pcm";',
         #'Ocp-Apim-Subscription-Key': subscription_key,
-        "Authorization": get_token(subscription_key,region),
+        "Authorization": get_token(subscription_key, region),
     }
     with open("output.wav", "rb") as payload:
         response = requests.request("POST", url, headers=headers, data=payload)
@@ -132,7 +132,7 @@ def speech2text(subscription_key,region) -> str:
             return text["DisplayText"]
 
 
-def get_token(subscription_key,region) -> str:
+def get_token(subscription_key, region) -> str:
     """get access token for the given subscription key
 
     Parameters
@@ -145,7 +145,9 @@ def get_token(subscription_key,region) -> str:
     str
         access token
     """
-    fetch_token_url = f"https://{region}.api.cognitive.microsoft.com/sts/v1.0/issueToken"
+    fetch_token_url = (
+        f"https://{region}.api.cognitive.microsoft.com/sts/v1.0/issueToken"
+    )
     headers = {"Ocp-Apim-Subscription-Key": subscription_key}
     response = requests.post(fetch_token_url, headers=headers)
     return str(response.text)
@@ -223,14 +225,14 @@ def main():
         "<center><h1>Sigma ChatBot</h1></center> <br> <br>", unsafe_allow_html=True
     )
     user_input = ""
-    #region = "switzerlandwest"#huseyin
-    region = "eastusa" #ata
+    # region = "switzerlandwest"#huseyin
+    region = "eastus"  # ata
     chosen_way = st.radio("How do you want to ask the questions?", ("Text", "Speech"))
     if chosen_way == "Text":
         user_input = get_text()
     elif chosen_way == "Speech":
         if get_speech():
-            user_input = speech2text(azure_key,region)
+            user_input = speech2text(azure_key, region)
             st.write(user_input)
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -240,16 +242,15 @@ def main():
     key = azure_key
     config = sdk.SpeechConfig(subscription=key, region=region)
     config.speech_synthesis_language = "en-US"
-    config.speech_synthesis_voice_name='en-US-JennyNeural'
+    config.speech_synthesis_voice_name = "en-US-JennyNeural"
     speech_synthesizer = sdk.SpeechSynthesizer(speech_config=config, audio_config=None)
-    #synthesizer = sdk.SpeechSynthesizer(speech_config=config)
+    # synthesizer = sdk.SpeechSynthesizer(speech_config=config)
     input_text = st.text_input("Please write a text to convert it to a speech:")
     if st.button("test azure text to speech") and input_text is not None:
         result = speech_synthesizer.speak_text(input_text)
         st.audio(result.audio_data)
-        #audioStream = sdk.AudioDataStream(result)
-        #display(audioElement)
-        
+        # audioStream = sdk.AudioDataStream(result)
+        # display(audioElement)
 
     try:
         if answer and (

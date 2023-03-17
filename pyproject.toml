@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "sigma"
+version = "0.1.0"
+description = "it is a chatbot powered by openai and azure apis to educate the students about graduate and post-graduate education."
+authors = ["olympian-21 <ataturhan21@gmail.com>", "hpekkan huseyinpekkan1163@gmail.com"]
+license = "GPL-3.0"
+keywords = ["chatbot", "openai", "college", "sigma"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+audio-recorder-streamlit = "^0.0.8"
+azure-cognitiveservices-speech = "^1.26.0"
+openai = "^0.27.2"
+requests = "^2.28.2"
+streamlit = "^1.20.0"
+streamlit-chat = "^0.0.2.2"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.1.0"
+isort = "^5.12.0"
+pre-commit = "^3.1.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

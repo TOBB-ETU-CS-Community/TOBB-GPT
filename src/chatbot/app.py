@@ -243,12 +243,13 @@ def main():
     config.speech_synthesis_language = "en-US"
     config.speech_synthesis_voice_name='en-US-JennyNeural'
     audio_config = sdk.audio.AudioOutputConfig(use_default_speaker=True)
-    speech_synthesizer = sdk.SpeechSynthesizer(speech_config=config, audio_config=audio_config)
+    speech_synthesizer = sdk.SpeechSynthesizer(speech_config=config, audio_config=None)
     
     #synthesizer = sdk.SpeechSynthesizer(speech_config=config)
     input_text = st.text_input("Please write a text to convert it to a speech:")
     if st.button("test azure text to speech") and input_text is not None:
-        speech_synthesizer.speak_text_async(input_text).get()
+        result = speech_synthesizer.speak_text_async(input_text).get()
+        stream = AudioDataStream(result)
 
     try:
         if answer and (
@@ -269,7 +270,8 @@ def main():
             for i in range(len(st.session_state["bot"])):
                 message(st.session_state["user"][i], is_user=True, key=f"{str(i)}_user")
                 message(st.session_state["bot"][i], key=str(i))
-                speech_synthesizer.speak_text(st.session_state["bot"][i])
+                result = speech_synthesizer.speak_text_async(st.session_state["bot"][i]).get()
+                stream = AudioDataStream(result)
                 # tts = gTTS(st.session_state["bot"][i], lang="en")
                 # tts.write_to_fp(sound_file)
                 # st.audio(sound_file)

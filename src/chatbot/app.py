@@ -241,6 +241,7 @@ def main():
     key = azure_key
     config = sdk.SpeechConfig(subscription=key, region=region)
     config.speech_synthesis_language = "en-US"
+    print("asdfasdf")
     synthesizer = sdk.SpeechSynthesizer(speech_config=config)
     input_text = st.text_input("Please write a text to convert it to a speech:")
     if st.button("test azure text to speech") and input_text is not None:

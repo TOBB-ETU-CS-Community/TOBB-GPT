@@ -201,8 +201,8 @@ def main():
     )
 
     add_bg_from_local(
-        os.path.join(os.getcwd(), "../../data/main.png"),
-        os.path.join(os.getcwd(), "../../data/sidebar.png"),
+        os.path.join(os.getcwd(), "data/main.png"),
+        os.path.join(os.getcwd(), "data/sidebar.png"),
     )
 
     st.sidebar.markdown(

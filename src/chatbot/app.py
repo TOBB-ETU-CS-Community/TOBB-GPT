@@ -4,7 +4,7 @@ official open-ai module to make api calls
 import base64
 from io import BytesIO
 import os
-
+import IPython.display as ipd
 import openai
 import streamlit as st
 from streamlit_chat import message
@@ -250,7 +250,11 @@ def main():
         result = speech_synthesizer.speak_text_async(input_text).get()
         
         stream = sdk.AudioDataStream(result)
-        st.audio(stream)
+        stream = bytes(audioStream)
+        audioBlob = io.BytesIO(stream)
+        audioElement = ipd.Audio(audioBlob, format='mp3')
+        st.audio(audioElement)
+        #display(audioElement)
         
 
     try:

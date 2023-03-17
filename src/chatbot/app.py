@@ -4,7 +4,6 @@ official open-ai module to make api calls
 import base64
 from io import BytesIO
 import os
-import IPython.display as ipd
 import openai
 import streamlit as st
 from streamlit_chat import message

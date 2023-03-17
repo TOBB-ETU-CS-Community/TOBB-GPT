@@ -250,6 +250,7 @@ def main():
         result = speech_synthesizer.speak_text_async(input_text).get()
         
         stream = sdk.AudioDataStream(result)
+        st.audio(stream)
         
 
     try:

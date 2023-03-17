@@ -124,7 +124,7 @@ def speech2text(subscription_key,region) -> str:
     headers = {
         "Content-type": 'audio/wav;codec="audio/pcm";',
         #'Ocp-Apim-Subscription-Key': subscription_key,
-        "Authorization": get_token(subscription_key,region),
+        "Authorization": get_token(subscription_key),
     }
     with open("output.wav", "rb") as payload:
         response = requests.request("POST", url, headers=headers, data=payload)
@@ -202,8 +202,8 @@ def main():
     )
 
     add_bg_from_local(
-        os.path.join(os.getcwd(), "../../data/main.png"),
-        os.path.join(os.getcwd(), "../../data/sidebar.png"),
+        os.path.join(os.getcwd(), "data/main.png"),
+        os.path.join(os.getcwd(), "data/sidebar.png"),
     )
 
     st.sidebar.markdown(

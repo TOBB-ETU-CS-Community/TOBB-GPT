@@ -107,7 +107,7 @@ def get_speech() -> bool:
     return False
 
 
-def speech2text(subscription_key) -> str:
+def speech2text(subscription_key,region) -> str:
     """convert speech to text
 
     Parameters
@@ -120,11 +120,11 @@ def speech2text(subscription_key) -> str:
     str
         Text generated from speech
     """
-    url = "https://eastus.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US"
+    url = f"https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US"
     headers = {
         "Content-type": 'audio/wav;codec="audio/pcm";',
         #'Ocp-Apim-Subscription-Key': subscription_key,
-        "Authorization": get_token(subscription_key),
+        "Authorization": get_token(subscription_key,region),
     }
     with open("output.wav", "rb") as payload:
         response = requests.request("POST", url, headers=headers, data=payload)
@@ -133,7 +133,7 @@ def speech2text(subscription_key) -> str:
             return text["DisplayText"]
 
 
-def get_token(subscription_key) -> str:
+def get_token(subscription_key,region) -> str:
     """get access token for the given subscription key
 
     Parameters
@@ -146,7 +146,7 @@ def get_token(subscription_key) -> str:
     str
         access token
     """
-    fetch_token_url = "https://eastus.api.cognitive.microsoft.com/sts/v1.0/issueToken"
+    fetch_token_url = f"https://{region}.api.cognitive.microsoft.com/sts/v1.0/issueToken"
     headers = {"Ocp-Apim-Subscription-Key": subscription_key}
     response = requests.post(fetch_token_url, headers=headers)
     return str(response.text)
@@ -202,8 +202,8 @@ def main():
     )
 
     add_bg_from_local(
-        os.path.join(os.getcwd(), "data/main.png"),
-        os.path.join(os.getcwd(), "data/sidebar.png"),
+        os.path.join(os.getcwd(), "../../data/main.png"),
+        os.path.join(os.getcwd(), "../../data/sidebar.png"),
     )
 
     st.sidebar.markdown(
@@ -224,13 +224,14 @@ def main():
         "<center><h1>Sigma ChatBot</h1></center> <br> <br>", unsafe_allow_html=True
     )
     user_input = ""
+    region = "switzerlandwest"
 
     chosen_way = st.radio("How do you want to ask the questions?", ("Text", "Speech"))
     if chosen_way == "Text":
         user_input = get_text()
     elif chosen_way == "Speech":
         if get_speech():
-            user_input = speech2text(azure_key)
+            user_input = speech2text(azure_key,region)
             st.write(user_input)
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -238,7 +239,6 @@ def main():
     with col5:
         answer = st.button("Answer")
     key = azure_key
-    region = "eastus"
     config = sdk.SpeechConfig(subscription=key, region=region)
     synthesizer = sdk.SpeechSynthesizer(speech_config=config)
     input_text = st.text_input("Please write a text to convert it to a speech:")

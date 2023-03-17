@@ -242,7 +242,7 @@ def main():
     config.speech_synthesis_language = "en-US"
     config.speech_synthesis_voice_name='en-US-JennyNeural'
     compressed_format = sdk.audio.AudioStreamFormat(compressed_stream_format=sdk.AudioStreamContainerFormat.MP3)
-    stream = sdk.audio.PullAudioInputStream(stream_format=compressed_format, pull_stream_callback=callback)
+    stream = sdk.audio.PullAudioInputStream(stream_format=compressed_format)
     audio_config = sdk.audio.AudioOutputConfig(stream=stream )
     speech_synthesizer = sdk.SpeechSynthesizer(speech_config=config, audio_config=audio_config)
     #synthesizer = sdk.SpeechSynthesizer(speech_config=config)

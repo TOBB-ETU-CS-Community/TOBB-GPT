@@ -270,8 +270,8 @@ def main():
             for i in range(len(st.session_state["bot"])):
                 message(st.session_state["user"][i], is_user=True, key=f"{str(i)}_user")
                 message(st.session_state["bot"][i], key=str(i))
-                result = speech_synthesizer.speak_text_async(st.session_state["bot"][i]).get()
-                stream = AudioDataStream(result)
+                result = speech_synthesizer.speak_text(st.session_state["bot"][i])
+                st.audio(result.audio_data)
                 # tts = gTTS(st.session_state["bot"][i], lang="en")
                 # tts.write_to_fp(sound_file)
                 # st.audio(sound_file)

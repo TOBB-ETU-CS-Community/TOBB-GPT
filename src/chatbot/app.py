@@ -249,10 +249,7 @@ def main():
         result = speech_synthesizer.speak_text_async(input_text).get()
         
         audioStream = sdk.AudioDataStream(result)
-        stream = bytes(audioStream)
-        audioBlob = io.BytesIO(stream)
-        audioElement = ipd.Audio(audioBlob, format='mp3')
-        st.audio(audioElement)
+        print(audioStream)
         #display(audioElement)
         
 

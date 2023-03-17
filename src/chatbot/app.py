@@ -241,16 +241,14 @@ def main():
     config = sdk.SpeechConfig(subscription=key, region=region)
     config.speech_synthesis_language = "en-US"
     config.speech_synthesis_voice_name='en-US-JennyNeural'
-    compressed_format = sdk.audio.AudioStreamFormat(compressed_stream_format=sdk.AudioStreamContainerFormat.MP3)
-    callback = BinaryFileReaderCallback(".")
-    stream = sdk.audio.PullAudioInputStream(stream_format=compressed_format, pull_stream_callback=callback)
-    audio_config = sdk.audio.AudioOutputConfig(stream=stream )
-    speech_synthesizer = sdk.SpeechSynthesizer(speech_config=config, audio_config=audio_config)
+    speech_synthesizer = sdk.SpeechSynthesizer(speech_config=config, audio_config=None)
     #synthesizer = sdk.SpeechSynthesizer(speech_config=config)
     input_text = st.text_input("Please write a text to convert it to a speech:")
     if st.button("test azure text to speech") and input_text is not None:
         result = speech_synthesizer.speak_text_async(input_text).get()
-        st.audio(result)
+        audio_stream = BytesIO(result)
+        audio_segment = AudioSegment.from_file(audio_stream, format="mp3")
+        st.audio(audio_segment.export(format="mp3"), format="audio/mp3")
         #audioStream = sdk.AudioDataStream(result)
         #display(audioElement)
         

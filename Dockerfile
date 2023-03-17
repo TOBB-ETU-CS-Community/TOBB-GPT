@@ -5,7 +5,7 @@ WORKDIR /Sigma-Chatbot
 COPY . .
 
 RUN pip install --upgrade pip \
-    &&  pip install --requirement requirements.txt
+    &&  pip install --requirement requirements.txt && sudo apt-get install libssl-dev libasound2
 
 EXPOSE 8501
 

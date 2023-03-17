@@ -249,7 +249,7 @@ def main():
     if st.button("test azure text to speech") and input_text is not None:
         result = speech_synthesizer.speak_text_async(input_text).get()
         
-       stream = sdk.AudioDataStream(result)
+        stream = sdk.AudioDataStream(result)
         
 
     try:

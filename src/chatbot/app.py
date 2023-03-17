@@ -223,8 +223,8 @@ def main():
         "<center><h1>Sigma ChatBot</h1></center> <br> <br>", unsafe_allow_html=True
     )
     user_input = ""
-    region = "switzerlandwest"
-
+    #region = "switzerlandwest"#huseyin
+    region = "eastusa" #ata
     chosen_way = st.radio("How do you want to ask the questions?", ("Text", "Speech"))
     if chosen_way == "Text":
         user_input = get_text()

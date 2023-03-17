@@ -224,7 +224,7 @@ def main():
     )
     user_input = ""
     #region = "switzerlandwest"#huseyin
-    region = "eastusa" #ata
+    region = "eastus" #ata
     chosen_way = st.radio("How do you want to ask the questions?", ("Text", "Speech"))
     if chosen_way == "Text":
         user_input = get_text()

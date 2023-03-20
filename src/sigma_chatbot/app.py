@@ -2,15 +2,16 @@
 official open-ai module to make api calls
 """
 import base64
-from io import BytesIO
-import os
-import openai
-import streamlit as st
-from streamlit_chat import message
-import requests
 import json
-from audio_recorder_streamlit import audio_recorder
+import os
+from io import BytesIO
+
 import azure.cognitiveservices.speech as sdk
+import openai
+import requests
+import streamlit as st
+from audio_recorder_streamlit import audio_recorder
+from streamlit_chat import message
 
 openai.api_key = st.secrets["openai-api-key"]
 azure_key = st.secrets["azure-s2t-key"]
@@ -122,7 +123,7 @@ def speech2text(subscription_key, region) -> str:
     url = f"https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US"
     headers = {
         "Content-type": 'audio/wav;codec="audio/pcm";',
-        #'Ocp-Apim-Subscription-Key': subscription_key,
+        # 'Ocp-Apim-Subscription-Key': subscription_key,
         "Authorization": get_token(subscription_key, region),
     }
     with open("output.wav", "rb") as payload:
@@ -153,7 +154,9 @@ def get_token(subscription_key, region) -> str:
     return str(response.text)
 
 
-def add_bg_from_local(background_file: str, sidebar_background_file: str) -> None:
+def add_bg_from_local(
+    background_file: str, sidebar_background_file: str
+) -> None:
     """set the background images
 
     Parameters
@@ -222,12 +225,15 @@ def main():
     st.sidebar.write("Developed by Hüseyin Pekkan Ata Turhan")
 
     st.markdown(
-        "<center><h1>Sigma ChatBot</h1></center> <br> <br>", unsafe_allow_html=True
+        "<center><h1>Sigma ChatBot</h1></center> <br> <br>",
+        unsafe_allow_html=True,
     )
     user_input = ""
     # region = "switzerlandwest"#huseyin
     region = "eastus"  # ata
-    chosen_way = st.radio("How do you want to ask the questions?", ("Text", "Speech"))
+    chosen_way = st.radio(
+        "How do you want to ask the questions?", ("Text", "Speech")
+    )
     if chosen_way == "Text":
         user_input = get_text()
     elif chosen_way == "Speech":
@@ -243,9 +249,13 @@ def main():
     config = sdk.SpeechConfig(subscription=key, region=region)
     config.speech_synthesis_language = "en-US"
     config.speech_synthesis_voice_name = "en-US-JennyNeural"
-    speech_synthesizer = sdk.SpeechSynthesizer(speech_config=config, audio_config=None)
+    speech_synthesizer = sdk.SpeechSynthesizer(
+        speech_config=config, audio_config=None
+    )
     # synthesizer = sdk.SpeechSynthesizer(speech_config=config)
-    input_text = st.text_input("Please write a text to convert it to a speech:")
+    input_text = st.text_input(
+        "Please write a text to convert it to a speech:"
+    )
     if st.button("test azure text to speech") and input_text is not None:
         result = speech_synthesizer.speak_text(input_text)
         st.audio(result.audio_data)
@@ -265,13 +275,19 @@ def main():
             st.session_state.user.append(user_input)
             st.session_state.bot.append(output)
 
-        sound_file = BytesIO()
+        BytesIO()
         if st.session_state["bot"]:
             st.markdown("<br><br>", unsafe_allow_html=True)
             for i in range(len(st.session_state["bot"])):
-                message(st.session_state["user"][i], is_user=True, key=f"{str(i)}_user")
+                message(
+                    st.session_state["user"][i],
+                    is_user=True,
+                    key=f"{str(i)}_user",
+                )
                 message(st.session_state["bot"][i], key=str(i))
-                result = speech_synthesizer.speak_text(st.session_state["bot"][i])
+                result = speech_synthesizer.speak_text(
+                    st.session_state["bot"][i]
+                )
                 st.audio(result.audio_data)
                 # tts = gTTS(st.session_state["bot"][i], lang="en")
                 # tts.write_to_fp(sound_file)

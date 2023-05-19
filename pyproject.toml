@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "sigma"
-version = "0.1.0"
-description = "it is a chatbot powered by openai and azure apis to educate the students about graduate and post-graduate education."
+name = "sigma-chat-bot"
+version = "0.1.1"
+description = "It is a chatbot powered by OpenAI, Langchain, ChromeDB, and Azure APIs to educate students about specific colleges."
 authors = ["olympian-21 <ataturhan21@gmail.com>", "hpekkan huseyinpekkan1163@gmail.com"]
 license = "GPL-3.0"
-keywords = ["chatbot", "openai", "college", "sigma"]
+keywords = ["chatbot", "openai", "college", "sigma", "langchain"]
 readme = "README.md"
 
 [tool.poetry.dependencies]

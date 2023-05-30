@@ -260,6 +260,7 @@ def main():
     speech_synthesizer = sdk.SpeechSynthesizer(
         speech_config=config, audio_config=None
     )
+
     # synthesizer = sdk.SpeechSynthesizer(speech_config=config)
 
     # input_text = st.text_input(
@@ -270,6 +271,7 @@ def main():
     #    st.audio(result.audio_data)
     # audioStream = sdk.AudioDataStream(result)
     # display(audioElement)
+
     try:
         if answer and (
             st.session_state.text_received or st.session_state.audio_recorded

@@ -70,7 +70,7 @@ poetry shell
 2. Run the project:
 
 ```
-streamlit run "src/sigma_chatbot/app.py"
+streamlit run "sigma_chatbot/app.py"
 ```
 
 ## Contributing

@@ -13,7 +13,6 @@ import streamlit as st
 from audio_recorder_streamlit import audio_recorder
 from streamlit_chat import message
 
-openai.api_key = st.secrets["openai-api-key"]
 azure_key = st.secrets["azure-s2t-key"]
 
 # Storing the chat
@@ -28,6 +27,11 @@ if "audio_recorded" not in st.session_state:
 
 if "text_received" not in st.session_state:
     st.session_state.text_received = False
+if "openai_api_key" not in st.session_state:
+    st.session_state.openai_api_key = None
+if st.session_state.openai_api_key is not None:
+    openai.api_key = st.session_state.openai_api_key
+    os.environ["OPENAI_API_KEY"] = st.session_state.openai_api_key
 
 
 @st.cache
@@ -214,6 +218,12 @@ def main():
         "<center><h3>Configurations for ChatBot</h3></center> <br> <br>",
         unsafe_allow_html=True,
     )
+    openai_api_key = st.sidebar.text_input("Please enter the OPEN AI api key:")
+    if st.sidebar.button("Use this OPEN AI api key:"):
+        st.session_state.openai_api_key = openai_api_key
+
+    st.sidebar.markdown("<br> " * 2, unsafe_allow_html=True)
+
     creativity = st.sidebar.slider(
         "How much creativity do you want in your chatbot?",
         min_value=0,

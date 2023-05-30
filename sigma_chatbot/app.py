@@ -30,11 +30,9 @@ if "text_received" not in st.session_state:
 if "openai_api_key" not in st.session_state:
     st.session_state.openai_api_key = None
 if st.session_state.openai_api_key is not None:
-    openai.api_key = st.session_state.openai_api_key
     os.environ["OPENAI_API_KEY"] = st.session_state.openai_api_key
 
 
-@st.cache
 def generate_response(
     prompt: str = "Tell me about best universities in the world, please.",
     creativity: int = 5,
@@ -219,7 +217,7 @@ def main():
         unsafe_allow_html=True,
     )
     openai_api_key = st.sidebar.text_input("Please enter the OPEN AI api key:")
-    if st.sidebar.button("Use this OPEN AI api key:"):
+    if st.sidebar.button("Use this OPEN AI api key"):
         st.session_state.openai_api_key = openai_api_key
 
     st.sidebar.markdown("<br> " * 2, unsafe_allow_html=True)
@@ -263,15 +261,15 @@ def main():
         speech_config=config, audio_config=None
     )
     # synthesizer = sdk.SpeechSynthesizer(speech_config=config)
-    input_text = st.text_input(
-        "Please write a text to convert it to a speech:"
-    )
-    if st.button("test azure text to speech") and input_text is not None:
-        result = speech_synthesizer.speak_text(input_text)
-        st.audio(result.audio_data)
-        # audioStream = sdk.AudioDataStream(result)
-        # display(audioElement)
 
+    # input_text = st.text_input(
+    #    "Please write a text to convert it to a speech:"
+    # )
+    # if st.button("test azure text to speech") and input_text is not None:
+    #    result = speech_synthesizer.speak_text(input_text)
+    #    st.audio(result.audio_data)
+    # audioStream = sdk.AudioDataStream(result)
+    # display(audioElement)
     try:
         if answer and (
             st.session_state.text_received or st.session_state.audio_recorded

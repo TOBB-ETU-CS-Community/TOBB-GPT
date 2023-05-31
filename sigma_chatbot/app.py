@@ -11,6 +11,13 @@ import openai
 import requests
 import streamlit as st
 from audio_recorder_streamlit import audio_recorder
+from chromadb.config import Settings
+from langchain.chains import RetrievalQA
+from langchain.chat_models import ChatOpenAI
+from langchain.document_loaders import TextLoader
+from langchain.prompts import PromptTemplate
+from langchain.text_splitter import MarkdownTextSplitter
+from langchain.vectorstores import Chroma
 from streamlit_chat import message
 
 azure_key = st.secrets["azure-s2t-key"]
@@ -179,12 +186,12 @@ def add_bg_from_local(
 
     page = f"""<style>
         .stApp {{
-            background-image: url(data:image/png;base64,{encoded_string.decode()});
+            background-image: url(input:image/png;base64,{encoded_string.decode()});
             background-size: cover;
         }}
 
         section[data-testid="stSidebar"] div[class="css-6qob1r e1fqkh3o3"] {{
-            background-image: url(data:image/png;base64,{sidebar_encoded_string.decode()});
+            background-image: url(input:image/png;base64,{sidebar_encoded_string.decode()});
             background-size: 400px 800px;
         }}
 
@@ -192,6 +199,61 @@ def add_bg_from_local(
 
     st.markdown(page, unsafe_allow_html=True)
     return
+
+
+def create_vector_store_retriever(file_path):
+    FULL_PATH = os.path.dirname(os.path.abspath(__file__))
+    DB_DIR = os.path.join(FULL_PATH, "Vector-DB")
+    client_settings = Settings(
+        chroma_db_impl="duckdb+parquet",
+        persist_directory=DB_DIR,
+        anonymized_telemetry=False,
+    )
+    vector_store = None
+
+    main_dir = os.path.dirname(FULL_PATH)
+    FILE_DIR = os.path.join(main_dir, file_path)
+    loader = TextLoader(FILE_DIR, encoding="utf-8")
+    documents = loader.load()
+    char_text_splitter = MarkdownTextSplitter(
+        chunk_size=2048,
+        chunk_overlap=512,
+    )
+    texts = char_text_splitter.split_documents(documents)
+
+    if not os.path.exists(DB_DIR):
+        vector_store = Chroma.from_documents(
+            texts,
+            # embeddings,
+            collection_name="Store",
+            persist_directory=DB_DIR,
+            client_settings=client_settings,
+        )
+        vector_store.persist()
+    else:
+        vector_store = Chroma(
+            # embedding_function=embeddings,
+            collection_name="Store",
+            persist_directory=DB_DIR,
+            client_settings=client_settings,
+        )
+    return vector_store.as_retriever(
+        search_type="similarity", search_kwargs={"k": 5}
+    )
+
+
+def create_retrieval_qa(prompt_template, llm, retriever):
+    PROMPT = PromptTemplate(
+        template=prompt_template, input_variables=["context", "question"]
+    )
+    chain_type_kwargs = {"prompt": PROMPT}
+
+    return RetrievalQA.from_chain_type(
+        llm=llm,
+        chain_type="stuff",
+        retriever=retriever,
+        chain_type_kwargs=chain_type_kwargs,
+    )
 
 
 def main():
@@ -208,8 +270,8 @@ def main():
     )
 
     add_bg_from_local(
-        os.path.join(os.getcwd(), "data/main.png"),
-        os.path.join(os.getcwd(), "data/sidebar.png"),
+        os.path.join(os.getcwd(), "input/main.png"),
+        os.path.join(os.getcwd(), "input/sidebar.png"),
     )
 
     st.sidebar.markdown(
@@ -222,13 +284,14 @@ def main():
 
     st.sidebar.markdown("<br> " * 2, unsafe_allow_html=True)
 
-    creativity = st.sidebar.slider(
-        "How much creativity do you want in your chatbot?",
-        min_value=0,
-        max_value=10,
-        value=5,
-        help="10 is maximum creativity and 0 is no creativity.",
-    )
+    # creativity = st.sidebar.slider(
+    #    "How much creativity do you want in your chatbot?",
+    #    min_value=0,
+    #    max_value=10,
+    #    value=5,
+    #    help="10 is maximum creativity and 0 is no creativity.",
+    # )
+
     st.sidebar.markdown("<br> " * 15, unsafe_allow_html=True)
     st.sidebar.write("Developed by Hüseyin Pekkan Ata Turhan")
 
@@ -236,6 +299,32 @@ def main():
         "<center><h1>Sigma ChatBot</h1></center> <br> <br>",
         unsafe_allow_html=True,
     )
+
+    file_path = "input/tobb.csv"
+    with st.spinner("Creating Vector Store"):
+        retriever = create_vector_store_retriever(file_path)
+
+    llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
+
+    prompt_template = """
+    <|SYSTEM|>#
+    - Sen Türkçe konuşan bir botsun. Soru Türkçe ise her zaman Türkçe cevap vermelisin.
+    - If the question is in English, then answer in English. If the question is Turkish, then answer in Turkish.
+    - You are a helpful, polite, fact-based agent for answering questions about TOBB University based on provided context.
+    - The user just asked you a question about this context. Answer it using the information contained in the context.
+    - If the question is not about universities, say that you only answer questions about universities.
+    <|USER|>
+    Please answer the following question using the context provided. Soru Türkçe ise sen de Türkçe cevap vermelisin.
+
+    QUESTION: {question}
+    CONTEXT:
+    {context}
+
+    ANSWER: <|ASSISTANT|>
+    """
+
+    qa = create_retrieval_qa(prompt_template, llm, retriever)
+
     user_input = ""
     # region = "switzerlandwest"#huseyin
     region = "eastus"  # ata
@@ -280,7 +369,7 @@ def main():
                 False,
                 False,
             )
-            output = generate_response(user_input, creativity)
+            output = qa.run(user_input)
             # store the output
             st.session_state.user.append(user_input)
             st.session_state.bot.append(output)

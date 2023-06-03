@@ -278,7 +278,7 @@ def main():
         "<center><h3>Configurations for ChatBot</h3></center> <br> <br>",
         unsafe_allow_html=True,
     )
-    openai_api_key = st.sidebar.text_input("Please enter the OPEN AI api key:")
+    openai_api_key = st.sidebar.text_input("Please enter the OpenAI API Key:")
     if st.sidebar.button("Use this OPEN AI api key"):
         st.session_state.openai_api_key = openai_api_key
 

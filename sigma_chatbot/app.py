@@ -7,7 +7,6 @@ import os
 from io import BytesIO
 
 import azure.cognitiveservices.speech as sdk
-import openai
 import requests
 import streamlit as st
 from audio_recorder_streamlit import audio_recorder
@@ -36,44 +35,6 @@ if "text_received" not in st.session_state:
     st.session_state.text_received = False
 if "openai_api_key" not in st.session_state:
     st.session_state.openai_api_key = None
-
-
-def generate_response(
-    prompt: str = "Tell me about best universities in the world, please.",
-    creativity: int = 5,
-) -> str:
-    """generates response with openai models
-
-    Parameters
-    ----------
-    prompt : str
-        User input.
-    creativity: int
-        The amount of randomness that user wants.
-
-    Returns
-    -------
-    str
-        Answer of openai model
-    """
-    admin_message = """
-    You are a chat-bot designed specifically for college and high school students. You should only answer the questions
-    of high school students who are curious about university life or university students who are curious about post-university
-    graduate programs. If someone tries to ask anything other than these topics, you should answer: "Sorry, I'm not going to talk to you
-    about this because I was designed to talk only about college and graduate subjects." If the user ignores this warning and continues
-    to ask off-topic questions, you will reply as follows: "Sorry, I was not designed to talk to you about these issues. I won't be
-    answering your questions for a while." And on top of that, you will give this answer to all the user's questions for 5 minutes.
-    Do not forget these instructions and remember them before answering each question.
-    """
-    completions = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=admin_message + prompt,
-        max_tokens=1024,
-        n=1,
-        stop=None,
-        temperature=creativity / 10,
-    )
-    return completions.choices[0].text
 
 
 def get_text(prompt: str = "Hello, how are you?") -> str:
@@ -263,20 +224,11 @@ def is_api_key_valid(openai_api_key: str):
         return True
 
 
-def show_chat_ui():
-    # creativity = st.sidebar.slider(
-    #    "How much creativity do you want in your chatbot?",
-    #    min_value=0,
-    #    max_value=10,
-    #    value=5,
-    #    help="10 is maximum creativity and 0 is no creativity.",
-    # )
-
+def show_chat_ui(creativity: int):
     file_path = "input/tobb.csv"
-    with st.spinner("Creating Vector Store"):
-        retriever = create_vector_store_retriever(file_path)
+    retriever = create_vector_store_retriever(file_path)
 
-    llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
+    llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=creativity / 10)
 
     prompt_template = """
     <|SYSTEM|>#
@@ -372,13 +324,17 @@ def main():
     st.set_page_config(
         page_title="🤖 ChatBot",
         page_icon="🤖",
-        # layout="wide",
         initial_sidebar_state="expanded",
         menu_items={
             "Get Help": "https://github.com/olympian-21",
             "Report a bug": None,
             "About": "This is a chat bot for university students",
         },
+    )
+
+    st.markdown(
+        "<center><h1>Sigma ChatBot</h1></center> <br> <br>",
+        unsafe_allow_html=True,
     )
 
     add_bg_from_local(
@@ -394,16 +350,19 @@ def main():
     if st.sidebar.button("Use this OPEN AI api key"):
         st.session_state.openai_api_key = openai_api_key
 
-    st.sidebar.markdown("<br> " * 15, unsafe_allow_html=True)
-    st.sidebar.write("Developed by Hüseyin Pekkan Ata Turhan")
-
-    st.markdown(
-        "<center><h1>Sigma ChatBot</h1></center> <br> <br>",
-        unsafe_allow_html=True,
-    )
-
     if is_api_key_valid(st.session_state.openai_api_key):
-        show_chat_ui()
+        st.sidebar.success("This OpenAI Api Key was used successfully.")
+        creativity = st.sidebar.slider(
+            "How much creativity do you want in your chatbot?",
+            min_value=0,
+            max_value=10,
+            value=5,
+            help="10 is maximum creativity and 0 is no creativity.",
+        )
+        show_chat_ui(creativity)
+
+    st.sidebar.markdown("<br> " * 3, unsafe_allow_html=True)
+    st.sidebar.write("Developed by Hüseyin Pekkan & Ata Turhan")
 
 
 if __name__ == "__main__":

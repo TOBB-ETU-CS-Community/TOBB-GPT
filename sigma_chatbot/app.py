@@ -36,8 +36,6 @@ if "text_received" not in st.session_state:
     st.session_state.text_received = False
 if "openai_api_key" not in st.session_state:
     st.session_state.openai_api_key = None
-if st.session_state.openai_api_key is not None:
-    os.environ["OPENAI_API_KEY"] = st.session_state.openai_api_key
 
 
 def generate_response(
@@ -256,34 +254,16 @@ def create_retrieval_qa(prompt_template, llm, retriever):
     )
 
 
-def main():
-    st.set_page_config(
-        page_title="🤖 ChatBot",
-        page_icon="🤖",
-        # layout="wide",
-        initial_sidebar_state="expanded",
-        menu_items={
-            "Get Help": "https://github.com/olympian-21",
-            "Report a bug": None,
-            "About": "This is a chat bot for university students",
-        },
-    )
+def is_api_key_valid(openai_api_key: str):
+    if openai_api_key is None or not openai_api_key.startswith("sk-"):
+        st.warning("Please enter a valid OpenAI API key!", icon="⚠")
+        return False
+    else:
+        os.environ["OPENAI_API_KEY"] = openai_api_key
+        return True
 
-    add_bg_from_local(
-        os.path.join(os.getcwd(), "input/main.png"),
-        os.path.join(os.getcwd(), "input/sidebar.png"),
-    )
 
-    st.sidebar.markdown(
-        "<center><h3>Configurations for ChatBot</h3></center> <br> <br>",
-        unsafe_allow_html=True,
-    )
-    openai_api_key = st.sidebar.text_input("Please enter the OpenAI API Key:")
-    if st.sidebar.button("Use this OPEN AI api key"):
-        st.session_state.openai_api_key = openai_api_key
-
-    st.sidebar.markdown("<br> " * 2, unsafe_allow_html=True)
-
+def show_chat_ui():
     # creativity = st.sidebar.slider(
     #    "How much creativity do you want in your chatbot?",
     #    min_value=0,
@@ -291,14 +271,6 @@ def main():
     #    value=5,
     #    help="10 is maximum creativity and 0 is no creativity.",
     # )
-
-    st.sidebar.markdown("<br> " * 15, unsafe_allow_html=True)
-    st.sidebar.write("Developed by Hüseyin Pekkan Ata Turhan")
-
-    st.markdown(
-        "<center><h1>Sigma ChatBot</h1></center> <br> <br>",
-        unsafe_allow_html=True,
-    )
 
     file_path = "input/tobb.csv"
     with st.spinner("Creating Vector Store"):
@@ -394,6 +366,44 @@ def main():
     except Exception as e:
         st.write(f"An error occurred: {type(e).__name__}")
         st.write("\nPleae wait while we are solving the problem. Thank you ;]")
+
+
+def main():
+    st.set_page_config(
+        page_title="🤖 ChatBot",
+        page_icon="🤖",
+        # layout="wide",
+        initial_sidebar_state="expanded",
+        menu_items={
+            "Get Help": "https://github.com/olympian-21",
+            "Report a bug": None,
+            "About": "This is a chat bot for university students",
+        },
+    )
+
+    add_bg_from_local(
+        os.path.join(os.getcwd(), "input/main.png"),
+        os.path.join(os.getcwd(), "input/sidebar.png"),
+    )
+
+    st.sidebar.markdown(
+        "<center><h3>Configurations for ChatBot</h3></center> <br> <br>",
+        unsafe_allow_html=True,
+    )
+    openai_api_key = st.sidebar.text_input("Please enter the OpenAI API Key:")
+    if st.sidebar.button("Use this OPEN AI api key"):
+        st.session_state.openai_api_key = openai_api_key
+
+    st.sidebar.markdown("<br> " * 15, unsafe_allow_html=True)
+    st.sidebar.write("Developed by Hüseyin Pekkan Ata Turhan")
+
+    st.markdown(
+        "<center><h1>Sigma ChatBot</h1></center> <br> <br>",
+        unsafe_allow_html=True,
+    )
+
+    if is_api_key_valid(st.session_state.openai_api_key):
+        show_chat_ui()
 
 
 if __name__ == "__main__":

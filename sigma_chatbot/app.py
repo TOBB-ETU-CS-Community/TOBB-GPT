@@ -1,6 +1,3 @@
-"""
-official open-ai module to make api calls
-"""
 import base64
 import json
 import os
@@ -37,7 +34,9 @@ if "openai_api_key" not in st.session_state:
     st.session_state.openai_api_key = None
 
 
-def get_text(prompt: str = "Hello, how are you?") -> str:
+def get_text(
+    prompt: str = "Bana TOBB Üniversitesi hakkında bilgi verebilir misin?",
+) -> str:
     """generates a message for the conversation
 
     Parameters
@@ -347,7 +346,7 @@ def main():
         unsafe_allow_html=True,
     )
     openai_api_key = st.sidebar.text_input("Please enter the OpenAI API Key:")
-    if st.sidebar.button("Use this OPEN AI api key"):
+    if st.sidebar.button("Use this OPEN AI Api Key"):
         st.session_state.openai_api_key = openai_api_key
 
     if is_api_key_valid(st.session_state.openai_api_key):

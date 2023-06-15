@@ -136,14 +136,15 @@ def create_vector_store_retriever(query):
         description="Search Google for recent results.",
         func=lambda query: search.results(query, 3),
     )
-    st.write("google namussuz")
     result = tool.run(query)
     st.write(result)
     urls = [val["link"] for val in result]
     st.write(urls)
-    st.write("google şerefsiz")
     loader = WebBaseLoader(urls)
     documents = loader.load()
+    for doc in documents:
+        doc.page_content = doc.page_content
+        doc.metadata = {"url": doc.metadata["source"]}
     st.write(documents)
     char_text_splitter = MarkdownTextSplitter(
         chunk_size=2048,
@@ -161,7 +162,8 @@ def transform_question(question):
       soruyu, kullanıcının bilmek istediği bilgileri getiren bir Google arama sorgusuna dönüştürürsünüz.
       Dönüştürmen gereken soru, tek tırnak işaretleri arasındadır:
      '{question}'
-     Verdiğin cevap da yalnızca arama sorgusu yer almalı, başka herhangi bir şey yazmamalısın.
+     Verdiğin cevap da yalnızca arama sorgusu yer almalı, başka herhangi bir şey yazmamalı ve tırnak işareti gibi
+     bir noktalama işareti de eklememelisin.
      """
     model = "text-davinci-003"
     response = openai.Completion.create(
@@ -204,17 +206,18 @@ def show_chat_ui():
     <|SYSTEM|>#
     - Sen Türkçe konuşan bir botsun. Soru Türkçe ise her zaman Türkçe cevap vermelisin.
     - If the question is in English, then answer in English. If the question is Turkish, then answer in Turkish.
-    - You are a helpful, polite, fact-based agent for answering questions about TOBB University based on provided context and chat history.
-    - The user just asked you a question about this context or chat history. Answer it using the information contained in the context or chat history.
-    - If the question is not about universities, say that you only answer questions about universities.
+    - Sen yardımsever, nazik, gerçek dünyaya ait bilgilere dayalı olarak soru cevaplayan bir sohbet botusun. Yalnızca üniversiteler ile
+    ilgili sorulara cevap verebilirsin.
+    - Eğer sorulan sorunun cevabı sana verilen bağlamda ya da sohbet geçmişinde yoksa "Üzgünüm, bu sorunun cevabını bilmiyorum.
+    Lütfen başka bir soru sormayı deneyin." diye yanıt vermelisin.
     <|USER|>
-    Please answer the following question using the context provided or chat history.
+    Şimdi kullanıcı sana bir soru soruyor. Bu soruyu sana verilen bağlam ve sohbet geçmişindeki bilgileri kullanarak yanıtla.
 
-    QUESTION: {question}
-    CONTEXT:
+    SORU: {question}
+    BAĞLAM:
     {context}
 
-    ANSWER: <|ASSISTANT|>
+    CEVAP: <|ASSISTANT|>
     """
 
     user_input = ""
@@ -267,8 +270,11 @@ def show_chat_ui():
             st.write(query)
             query = query.replace('"', "").replace("'", "")
             st.write(query)
+            st.write("hata")
             retriever = create_vector_store_retriever(query)
+
             qa = create_retrieval_qa(prompt_template, llm, retriever)
+
             output = qa.run(user_input)
             # store the output
             st.session_state.user.append(user_input)
@@ -292,6 +298,7 @@ def show_chat_ui():
         _, center_err_col, _ = st.columns([1, 8, 1])
         center_err_col.markdown("<br>", unsafe_allow_html=True)
         center_err_col.error(f"An error occurred: {type(e).__name__}")
+        print(e)
         center_err_col.error(
             "\nPlease wait while we are solving the problem. Thank you ;]"
         )

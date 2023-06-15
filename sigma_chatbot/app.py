@@ -1,4 +1,3 @@
-import base64
 import json
 import os
 from io import BytesIO
@@ -7,16 +6,23 @@ import azure.cognitiveservices.speech as sdk
 import requests
 import streamlit as st
 from audio_recorder_streamlit import audio_recorder
-from chromadb.config import Settings
-from langchain.chains import RetrievalQA
+from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
-from langchain.document_loaders import TextLoader
+from langchain.document_loaders import WebBaseLoader
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import MarkdownTextSplitter
+from langchain.tools import Tool
+from langchain.utilities import GoogleSearchAPIWrapper
 from langchain.vectorstores import Chroma
+from modules.configurations import add_bg_from_local
 from streamlit_chat import message
 
-azure_key = st.secrets["azure-s2t-key"]
+os.environ["AZURE_S2T_KEY"] = st.secrets["AZURE_S2T_KEY"]
+os.environ["GOOGLE_CSE_ID"] = st.secrets["GOOGLE_CSE_ID"]
+os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
+
 
 # Storing the chat
 if "user" not in st.session_state:
@@ -121,96 +127,46 @@ def get_token(subscription_key, region) -> str:
     return str(response.text)
 
 
-def add_bg_from_local(
-    background_file: str, sidebar_background_file: str
-) -> None:
-    """set the background images
+def create_vector_store_retriever(query):
+    search = GoogleSearchAPIWrapper()
 
-    Parameters
-    ----------
-    background_file : str
-        path to the background
-    background_file : str
-        path to the sidebar background
-
-    Returns
-    -------
-    None
-    """
-    with open(background_file, "rb") as image_file:
-        encoded_string = base64.b64encode(image_file.read())
-    with open(sidebar_background_file, "rb") as image_file:
-        sidebar_encoded_string = base64.b64encode(image_file.read())
-
-    page = f"""<style>
-        .stApp {{
-            background-image: url(input:image/png;base64,{encoded_string.decode()});
-            background-size: cover;
-        }}
-
-        section[data-testid="stSidebar"] div[class="css-6qob1r e1fqkh3o3"] {{
-            background-image: url(input:image/png;base64,{sidebar_encoded_string.decode()});
-            background-size: 400px 800px;
-        }}
-
-    </style>"""
-
-    st.markdown(page, unsafe_allow_html=True)
-    return
-
-
-def create_vector_store_retriever(file_path):
-    FULL_PATH = os.path.dirname(os.path.abspath(__file__))
-    DB_DIR = os.path.join(FULL_PATH, "Vector-DB")
-    client_settings = Settings(
-        chroma_db_impl="duckdb+parquet",
-        persist_directory=DB_DIR,
-        anonymized_telemetry=False,
+    tool = Tool(
+        name="Google Search Snippets",
+        description="Search Google for recent results.",
+        func=lambda query: search.results(query, 3),
     )
-    vector_store = None
 
-    main_dir = os.path.dirname(FULL_PATH)
-    FILE_DIR = os.path.join(main_dir, file_path)
-    loader = TextLoader(FILE_DIR, encoding="utf-8")
+    result = tool.run(query)
+    urls = [val["link"] for val in result]
+    loader = WebBaseLoader(urls)
     documents = loader.load()
+    # st.write(documents)
     char_text_splitter = MarkdownTextSplitter(
-        chunk_size=2048,
-        chunk_overlap=512,
+        chunk_size=1600,
+        chunk_overlap=256,
     )
     texts = char_text_splitter.split_documents(documents)
 
-    if not os.path.exists(DB_DIR):
-        vector_store = Chroma.from_documents(
-            texts,
-            # embeddings,
-            collection_name="Store",
-            persist_directory=DB_DIR,
-            client_settings=client_settings,
-        )
-        vector_store.persist()
-    else:
-        vector_store = Chroma(
-            # embedding_function=embeddings,
-            collection_name="Store",
-            persist_directory=DB_DIR,
-            client_settings=client_settings,
-        )
-    return vector_store.as_retriever(
-        search_type="similarity", search_kwargs={"k": 5}
-    )
+    embeddings = OpenAIEmbeddings()
+    vector_store = Chroma.from_documents(texts, embeddings)
+    return vector_store.as_retriever()
 
 
 def create_retrieval_qa(prompt_template, llm, retriever):
     PROMPT = PromptTemplate(
         template=prompt_template, input_variables=["context", "question"]
     )
-    chain_type_kwargs = {"prompt": PROMPT}
+    combine_docs_chain_kwargs = {"prompt": PROMPT}
+    memory = ConversationBufferMemory(
+        memory_key="chat_history", return_messages=True
+    )
 
-    return RetrievalQA.from_chain_type(
+    return ConversationalRetrievalChain.from_llm(
         llm=llm,
         chain_type="stuff",
         retriever=retriever,
-        chain_type_kwargs=chain_type_kwargs,
+        combine_docs_chain_kwargs=combine_docs_chain_kwargs,
+        memory=memory,
     )
 
 
@@ -223,21 +179,18 @@ def is_api_key_valid(openai_api_key: str):
         return True
 
 
-def show_chat_ui(creativity: int):
-    file_path = "input/tobb.csv"
-    retriever = create_vector_store_retriever(file_path)
-
-    llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=creativity / 10)
+def show_chat_ui():
+    llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
 
     prompt_template = """
     <|SYSTEM|>#
     - Sen Türkçe konuşan bir botsun. Soru Türkçe ise her zaman Türkçe cevap vermelisin.
     - If the question is in English, then answer in English. If the question is Turkish, then answer in Turkish.
-    - You are a helpful, polite, fact-based agent for answering questions about TOBB University based on provided context.
-    - The user just asked you a question about this context. Answer it using the information contained in the context.
+    - You are a helpful, polite, fact-based agent for answering questions about TOBB University based on provided context and chat history.
+    - The user just asked you a question about this context or chat history. Answer it using the information contained in the context or chat history.
     - If the question is not about universities, say that you only answer questions about universities.
     <|USER|>
-    Please answer the following question using the context provided. Soru Türkçe ise sen de Türkçe cevap vermelisin.
+    Please answer the following question using the context provided or chat history.
 
     QUESTION: {question}
     CONTEXT:
@@ -245,8 +198,6 @@ def show_chat_ui(creativity: int):
 
     ANSWER: <|ASSISTANT|>
     """
-
-    qa = create_retrieval_qa(prompt_template, llm, retriever)
 
     user_input = ""
     # region = "switzerlandwest"#huseyin
@@ -258,14 +209,14 @@ def show_chat_ui(creativity: int):
         user_input = get_text()
     elif chosen_way == "Speech":
         if get_speech():
-            user_input = speech2text(azure_key, region)
+            user_input = speech2text(os.environ["AZURE_S2T_KEY"], region)
             st.write(user_input)
 
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3, col4, col5 = st.columns(5)
     with col5:
         answer = st.button("Answer")
-    key = azure_key
+    key = os.environ["AZURE_S2T_KEY"]
     config = sdk.SpeechConfig(subscription=key, region=region)
     config.speech_synthesis_language = "en-US"
     config.speech_synthesis_voice_name = "en-US-JennyNeural"
@@ -292,6 +243,8 @@ def show_chat_ui(creativity: int):
                 False,
                 False,
             )
+            retriever = create_vector_store_retriever(user_input)
+            qa = create_retrieval_qa(prompt_template, llm, retriever)
             output = qa.run(user_input)
             # store the output
             st.session_state.user.append(user_input)
@@ -311,12 +264,13 @@ def show_chat_ui(creativity: int):
                     st.session_state["bot"][i]
                 )
                 st.audio(result.audio_data)
-                # tts = gTTS(st.session_state["bot"][i], lang="en")
-                # tts.write_to_fp(sound_file)
-                # st.audio(sound_file)
     except Exception as e:
-        st.write(f"An error occurred: {type(e).__name__}")
-        st.write("\nPleae wait while we are solving the problem. Thank you ;]")
+        _, center_err_col, _ = st.columns([1, 8, 1])
+        center_err_col.markdown("<br>", unsafe_allow_html=True)
+        center_err_col.error(f"An error occurred: {type(e).__name__}")
+        center_err_col.error(
+            "\nPlease wait while we are solving the problem. Thank you ;]"
+        )
 
 
 def main():
@@ -336,10 +290,7 @@ def main():
         unsafe_allow_html=True,
     )
 
-    add_bg_from_local(
-        os.path.join(os.getcwd(), "input/main.png"),
-        os.path.join(os.getcwd(), "input/sidebar.png"),
-    )
+    add_bg_from_local("input/main.png", "input/sidebar.png")
 
     st.sidebar.markdown(
         "<center><h3>Configurations for ChatBot</h3></center> <br> <br>",
@@ -351,14 +302,7 @@ def main():
 
     if is_api_key_valid(st.session_state.openai_api_key):
         st.sidebar.success("This OpenAI Api Key was used successfully.")
-        creativity = st.sidebar.slider(
-            "How much creativity do you want in your chatbot?",
-            min_value=0,
-            max_value=10,
-            value=5,
-            help="10 is maximum creativity and 0 is no creativity.",
-        )
-        show_chat_ui(creativity)
+        show_chat_ui()
 
     st.sidebar.markdown("<br> " * 3, unsafe_allow_html=True)
     st.sidebar.write("Developed by Hüseyin Pekkan & Ata Turhan")

@@ -3,6 +3,7 @@ import os
 from io import BytesIO
 
 import azure.cognitiveservices.speech as sdk
+import openai
 import requests
 import streamlit as st
 from audio_recorder_streamlit import audio_recorder
@@ -135,21 +136,38 @@ def create_vector_store_retriever(query):
         description="Search Google for recent results.",
         func=lambda query: search.results(query, 3),
     )
-
+    st.write("google namussuz")
     result = tool.run(query)
+    st.write(result)
     urls = [val["link"] for val in result]
+    st.write(urls)
+    st.write("google şerefsiz")
     loader = WebBaseLoader(urls)
     documents = loader.load()
-    # st.write(documents)
+    st.write(documents)
     char_text_splitter = MarkdownTextSplitter(
-        chunk_size=1600,
-        chunk_overlap=256,
+        chunk_size=2048,
+        chunk_overlap=128,
     )
     texts = char_text_splitter.split_documents(documents)
 
     embeddings = OpenAIEmbeddings()
     vector_store = Chroma.from_documents(texts, embeddings)
     return vector_store.as_retriever()
+
+
+def transform_question(question):
+    prompt = f"""Bu görevde yapman gereken bu şey, kullanıcı sorularını arama sorgularına dönüştürmektir. Bir kullanıcı soru sorduğunda,
+      soruyu, kullanıcının bilmek istediği bilgileri getiren bir Google arama sorgusuna dönüştürürsünüz.
+      Dönüştürmen gereken soru, tek tırnak işaretleri arasındadır:
+     '{question}'
+     Verdiğin cevap da yalnızca arama sorgusu yer almalı, başka herhangi bir şey yazmamalısın.
+     """
+    model = "text-davinci-003"
+    response = openai.Completion.create(
+        engine=model, prompt=prompt, max_tokens=100
+    )
+    return response.choices[0].text
 
 
 def create_retrieval_qa(prompt_template, llm, retriever):
@@ -206,7 +224,9 @@ def show_chat_ui():
         "How do you want to ask the questions?", ("Text", "Speech")
     )
     if chosen_way == "Text":
-        user_input = get_text()
+        user_input = st.text_input(
+            "Please write your question in the textbox below: ", key="input"
+        )
     elif chosen_way == "Speech":
         if get_speech():
             user_input = speech2text(os.environ["AZURE_S2T_KEY"], region)
@@ -236,14 +256,18 @@ def show_chat_ui():
     # display(audioElement)
 
     try:
-        if answer and (
-            st.session_state.text_received or st.session_state.audio_recorded
-        ):
+        if answer:
             st.session_state.text_received, st.session_state.audio_recorded = (
                 False,
                 False,
             )
-            retriever = create_vector_store_retriever(user_input)
+            query = transform_question(st.session_state.input)
+            user_input = st.session_state.input
+            # query = st.session_state.input
+            st.write(query)
+            query = query.replace('"', "").replace("'", "")
+            st.write(query)
+            retriever = create_vector_store_retriever(query)
             qa = create_retrieval_qa(prompt_template, llm, retriever)
             output = qa.run(user_input)
             # store the output

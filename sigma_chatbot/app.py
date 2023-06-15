@@ -1,6 +1,5 @@
 import json
 import os
-from io import BytesIO
 
 import azure.cognitiveservices.speech as sdk
 import openai
@@ -34,6 +33,8 @@ if "audio_recorded" not in st.session_state:
     st.session_state.audio_recorded = False
 if "openai_api_key" not in st.session_state:
     st.session_state.openai_api_key = None
+if "textbox_used" not in st.session_state:
+    st.session_state.textbox_used = False
 
 
 def get_speech() -> bool:
@@ -48,11 +49,18 @@ def get_speech() -> bool:
     bool
         True if user voice is taken successfully else False
     """
-    if audio_bytes := audio_recorder():
+    if audio_bytes := audio_recorder(
+        text="Lütfen sesli bir soru sormak için sağdaki ikona tıklayın ve konuşmaya başlayın",
+        recording_color="#e8b62c",
+        neutral_color="#6aa36f",
+        icon_name="user",
+        icon_size="4x",
+    ):
         # st.audio(audio_bytes, format="audio/wav")
         # write('output.wav', 44100, audio_bytes)
         with open("output.wav", mode="bw") as f:
             f.write(audio_bytes)
+            st.session_state.textbox_used = False
             return True
     return False
 
@@ -70,7 +78,7 @@ def speech2text(subscription_key, region) -> str:
     str
         Text generated from speech
     """
-    url = f"https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US"
+    url = f"https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=tr-TR"
     headers = {
         "Content-type": 'audio/wav;codec="audio/pcm";',
         # 'Ocp-Apim-Subscription-Key': subscription_key,
@@ -78,7 +86,7 @@ def speech2text(subscription_key, region) -> str:
     }
     with open("output.wav", "rb") as payload:
         response = requests.request("POST", url, headers=headers, data=payload)
-        st.write(response)
+        # st.write(response)
         text = json.loads(response.text)
         if "DisplayText" in text.keys():
             return text["DisplayText"]
@@ -176,6 +184,10 @@ def is_api_key_valid(openai_api_key: str):
         return True
 
 
+def textbox_used():
+    st.session_state.textbox_used = True
+
+
 def show_chat_ui():
     llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
 
@@ -185,6 +197,8 @@ def show_chat_ui():
     - If the question is in English, then answer in English. If the question is Turkish, then answer in Turkish.
     - Sen yardımsever, nazik, gerçek dünyaya ait bilgilere dayalı olarak soru cevaplayan bir sohbet botusun. Yalnızca üniversiteler ile
     ilgili sorulara cevap verebilirsin.
+    - Eğer sorulan soru üniversiteler ile ilgili değilse "Üzgünüm, bu soru üniversiteler ile ilgili olmadığından cevaplayamıyorum.
+    Lütfen başka bir soru sormayı deneyin." diye yanıt vermelisin.
     - Eğer sorulan sorunun cevabı sana verilen bağlamda ya da sohbet geçmişinde yoksa "Üzgünüm, bu sorunun cevabını bilmiyorum.
     Lütfen başka bir soru sormayı deneyin." diye yanıt vermelisin.
     <|USER|>
@@ -200,52 +214,49 @@ def show_chat_ui():
     user_input = ""
     region = "switzerlandwest"  # huseyin
     # region = "eastus"  # ata
-    chosen_way = st.radio(
-        "How do you want to ask the questions?", ("Text", "Speech")
+    speech = None
+    if get_speech():
+        speech = speech2text(os.environ["AZURE_S2T_KEY"], region)
+    st.text_input(
+        label="",
+        value="" if speech is None else speech,
+        placeholder="Sorunuzu buraya yazabilirsiniz:",
+        key="text_box",
+        on_change=textbox_used,
     )
-    if chosen_way == "Text":
-        user_input = st.text_input(
-            "Please write your question in the text box below: ", key="input"
-        )
-    elif chosen_way == "Speech":
-        if get_speech():
-            user_input = speech2text(os.environ["AZURE_S2T_KEY"], region)
-            st.write(user_input)
 
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3, col4, col5 = st.columns(5)
     with col5:
-        answer = st.button("Answer")
+        answer = st.button("Cevapla")
 
     config = sdk.SpeechConfig(
         subscription=os.environ["AZURE_S2T_KEY"], region=region
     )
-    config.speech_synthesis_language = "en-US"
-    config.speech_synthesis_voice_name = "en-US-JennyNeural"
+    config.speech_synthesis_language = "tr-TR"
+    # config.speech_synthesis_voice_name = "en-US-JennyNeural"
     speech_synthesizer = sdk.SpeechSynthesizer(
         speech_config=config, audio_config=None
     )
 
     try:
         if answer:
-            st.session_state.audio_recorded = False
-            query = transform_question(st.session_state.input)
-            user_input = st.session_state.input
-            # query = st.session_state.input
-            # st.write(query)
-            query = query.replace('"', "").replace("'", "")
-            # st.write(query)
-            # st.write("hata")
-            retriever = create_vector_store_retriever(query)
+            with st.spinner("Soru internet üzerinde aranıyor:"):
+                query = transform_question(st.session_state.text_box)
+                query = query.replace('"', "").replace("'", "")
+                retriever = create_vector_store_retriever(query)
+                qa = create_retrieval_qa(prompt_template, llm, retriever)
 
-            qa = create_retrieval_qa(prompt_template, llm, retriever)
-
-            output = qa.run(user_input)
+            with st.spinner(
+                "Soru internet üzerindeki kaynaklar ile cevaplanıyor:"
+            ):
+                user_input = st.session_state.text_box
+                output = qa.run(user_input)
             # store the output
             st.session_state.user.append(user_input)
             st.session_state.bot.append(output)
 
-        BytesIO()
+        # BytesIO()
         if st.session_state["bot"]:
             st.markdown("<br><br>", unsafe_allow_html=True)
             for i in range(len(st.session_state["bot"])):
@@ -258,8 +269,8 @@ def show_chat_ui():
                 result = speech_synthesizer.speak_text(
                     st.session_state["bot"][i]
                 )
-                st.write(st.session_state["bot"][i])
-                st.write(result)
+                # st.write(st.session_state["bot"][i])
+                # st.write(result)
                 st.audio(result.audio_data)
     except Exception as e:
         _, center_err_col, _ = st.columns([1, 8, 1])

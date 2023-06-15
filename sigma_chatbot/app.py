@@ -28,36 +28,12 @@ os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
 # Storing the chat
 if "user" not in st.session_state:
     st.session_state.user = []
-
 if "bot" not in st.session_state:
     st.session_state.bot = []
-
 if "audio_recorded" not in st.session_state:
     st.session_state.audio_recorded = False
-
-if "text_received" not in st.session_state:
-    st.session_state.text_received = False
 if "openai_api_key" not in st.session_state:
     st.session_state.openai_api_key = None
-
-
-def get_text(
-    prompt: str = "Bana TOBB Üniversitesi hakkında bilgi verebilir misin?",
-) -> str:
-    """generates a message for the conversation
-
-    Parameters
-    ----------
-    prompt : str
-        Default message.
-
-    Returns
-    -------
-    str
-        User input for prompting the model
-    """
-    st.session_state.text_received = True
-    return st.text_input("You: ", prompt, key="input")
 
 
 def get_speech() -> bool:
@@ -102,6 +78,7 @@ def speech2text(subscription_key, region) -> str:
     }
     with open("output.wav", "rb") as payload:
         response = requests.request("POST", url, headers=headers, data=payload)
+        st.write(response)
         text = json.loads(response.text)
         if "DisplayText" in text.keys():
             return text["DisplayText"]
@@ -137,15 +114,15 @@ def create_vector_store_retriever(query):
         func=lambda query: search.results(query, 3),
     )
     result = tool.run(query)
-    st.write(result)
+    # st.write(result)
     urls = [val["link"] for val in result]
-    st.write(urls)
+    # st.write(urls)
     loader = WebBaseLoader(urls)
     documents = loader.load()
     for doc in documents:
         doc.page_content = doc.page_content
         doc.metadata = {"url": doc.metadata["source"]}
-    st.write(documents)
+    # st.write(documents)
     char_text_splitter = MarkdownTextSplitter(
         chunk_size=2048,
         chunk_overlap=128,
@@ -221,14 +198,14 @@ def show_chat_ui():
     """
 
     user_input = ""
-    # region = "switzerlandwest"#huseyin
-    region = "eastus"  # ata
+    region = "switzerlandwest"  # huseyin
+    # region = "eastus"  # ata
     chosen_way = st.radio(
         "How do you want to ask the questions?", ("Text", "Speech")
     )
     if chosen_way == "Text":
         user_input = st.text_input(
-            "Please write your question in the textbox below: ", key="input"
+            "Please write your question in the text box below: ", key="input"
         )
     elif chosen_way == "Speech":
         if get_speech():
@@ -239,38 +216,26 @@ def show_chat_ui():
     col1, col2, col3, col4, col5 = st.columns(5)
     with col5:
         answer = st.button("Answer")
-    key = os.environ["AZURE_S2T_KEY"]
-    config = sdk.SpeechConfig(subscription=key, region=region)
+
+    config = sdk.SpeechConfig(
+        subscription=os.environ["AZURE_S2T_KEY"], region=region
+    )
     config.speech_synthesis_language = "en-US"
     config.speech_synthesis_voice_name = "en-US-JennyNeural"
     speech_synthesizer = sdk.SpeechSynthesizer(
         speech_config=config, audio_config=None
     )
 
-    # synthesizer = sdk.SpeechSynthesizer(speech_config=config)
-
-    # input_text = st.text_input(
-    #    "Please write a text to convert it to a speech:"
-    # )
-    # if st.button("test azure text to speech") and input_text is not None:
-    #    result = speech_synthesizer.speak_text(input_text)
-    #    st.audio(result.audio_data)
-    # audioStream = sdk.AudioDataStream(result)
-    # display(audioElement)
-
     try:
         if answer:
-            st.session_state.text_received, st.session_state.audio_recorded = (
-                False,
-                False,
-            )
+            st.session_state.audio_recorded = False
             query = transform_question(st.session_state.input)
             user_input = st.session_state.input
             # query = st.session_state.input
-            st.write(query)
+            # st.write(query)
             query = query.replace('"', "").replace("'", "")
-            st.write(query)
-            st.write("hata")
+            # st.write(query)
+            # st.write("hata")
             retriever = create_vector_store_retriever(query)
 
             qa = create_retrieval_qa(prompt_template, llm, retriever)
@@ -293,6 +258,8 @@ def show_chat_ui():
                 result = speech_synthesizer.speak_text(
                     st.session_state["bot"][i]
                 )
+                st.write(st.session_state["bot"][i])
+                st.write(result)
                 st.audio(result.audio_data)
     except Exception as e:
         _, center_err_col, _ = st.columns([1, 8, 1])

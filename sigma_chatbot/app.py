@@ -29,12 +29,8 @@ if "user" not in st.session_state:
     st.session_state.user = []
 if "bot" not in st.session_state:
     st.session_state.bot = []
-if "audio_recorded" not in st.session_state:
-    st.session_state.audio_recorded = False
 if "openai_api_key" not in st.session_state:
     st.session_state.openai_api_key = None
-if "textbox_used" not in st.session_state:
-    st.session_state.textbox_used = False
 
 
 def get_speech() -> bool:
@@ -60,7 +56,6 @@ def get_speech() -> bool:
         # write('output.wav', 44100, audio_bytes)
         with open("output.wav", mode="bw") as f:
             f.write(audio_bytes)
-            st.session_state.textbox_used = False
             return True
     return False
 
@@ -184,18 +179,14 @@ def is_api_key_valid(openai_api_key: str):
         return True
 
 
-def textbox_used():
-    st.session_state.textbox_used = True
-
-
 def show_chat_ui():
     llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
 
     prompt_template = """
     <|SYSTEM|>#
     - Eğer sorulan soru doğrudan üniversiteler ve üniversite eğitimi ile ilgili değilse "Üzgünüm, bu soru üniversiteler
-     ile ilgili olmadığından cevaplayamıyorum.
-    Lütfen başka bir soru sormayı deneyin." diye yanıt vermelisin ve başka herhangi bir şey söylememelisin.
+     ile ilgili olmadığından cevaplayamıyorum. Lütfen başka bir soru sormayı deneyin." diye yanıt vermelisin ve başka
+      herhangi bir şey söylememelisin.
     - Sen Türkçe konuşan bir botsun. Soru Türkçe ise her zaman Türkçe cevap vermelisin.
     - If the question is in English, then answer in English. If the question is Turkish, then answer in Turkish.
     - Sen yardımsever, nazik, gerçek dünyaya ait bilgilere dayalı olarak soru cevaplayan bir sohbet botusun.
@@ -221,7 +212,6 @@ def show_chat_ui():
         value="" if speech is None else speech,
         placeholder="Sorunuzu buraya yazabilirsiniz:",
         key="text_box",
-        on_change=textbox_used,
     )
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -251,13 +241,12 @@ def show_chat_ui():
             ):
                 user_input = st.session_state.text_box
                 output = qa.run(user_input)
-            # store the output
+
             if user_input not in st.session_state.user:
                 st.session_state.user.append(user_input)
             if output not in st.session_state.bot:
                 st.session_state.bot.append(output)
 
-        # BytesIO()
         if st.session_state["bot"]:
             st.markdown("<br><br>", unsafe_allow_html=True)
             for i in range(len(st.session_state["bot"])):
@@ -270,8 +259,6 @@ def show_chat_ui():
                 result = speech_synthesizer.speak_text(
                     st.session_state["bot"][i]
                 )
-                # st.write(st.session_state["bot"][i])
-                # st.write(result)
                 st.audio(result.audio_data)
     except Exception as e:
         _, center_err_col, _ = st.columns([1, 8, 1])
@@ -279,7 +266,7 @@ def show_chat_ui():
         center_err_col.error(f"An error occurred: {type(e).__name__}")
         print(e)
         center_err_col.error(
-            "\nPlease wait while we are solving the problem. Thank you ;]"
+            "\nLütfen biz hatayı çözerken bekleyin. Teşekkürler ;]"
         )
 
 
@@ -306,12 +293,13 @@ def main():
         "<center><h3>Sohbet Botu Ayarları</h3></center> <br> <br>",
         unsafe_allow_html=True,
     )
-    openai_api_key = st.sidebar.text_input("Lütfen OpenAI API Key'ini girin:")
-    if st.sidebar.button("Bu OpenAI API Key'ini kullan"):
-        st.session_state.openai_api_key = openai_api_key
 
-    if is_api_key_valid(st.session_state.openai_api_key):
-        st.sidebar.success("This OpenAI Api Key was used successfully.")
+    st.sidebar.text_input("Lütfen OpenAI API Key'ini girin:", key="openai_api")
+    # if st.sidebar.button("Bu OpenAI API Key'ini kullan"):
+    # openai_api_key = st.session_state.openai_api
+
+    if is_api_key_valid(st.session_state.openai_api):
+        st.sidebar.success("Bu OpenAI API Key'i başarıyla alındı.")
         show_chat_ui()
 
     st.sidebar.markdown("<br> " * 3, unsafe_allow_html=True)

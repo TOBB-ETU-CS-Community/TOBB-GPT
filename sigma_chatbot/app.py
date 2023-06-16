@@ -177,7 +177,7 @@ def create_retrieval_qa(prompt_template, llm, retriever):
 
 def is_api_key_valid(openai_api_key: str):
     if openai_api_key is None or not openai_api_key.startswith("sk-"):
-        st.warning("Please enter a valid OpenAI API key!", icon="⚠")
+        st.warning("Lütfen geçerli bir OpenAI API Key'i girin!", icon="⚠")
         return False
     else:
         os.environ["OPENAI_API_KEY"] = openai_api_key
@@ -193,16 +193,15 @@ def show_chat_ui():
 
     prompt_template = """
     <|SYSTEM|>#
+    - Eğer sorulan soru doğrudan üniversiteler ve üniversite eğitimi ile ilgili değilse "Üzgünüm, bu soru üniversiteler
+     ile ilgili olmadığından cevaplayamıyorum.
+    Lütfen başka bir soru sormayı deneyin." diye yanıt vermelisin ve başka herhangi bir şey söylememelisin.
     - Sen Türkçe konuşan bir botsun. Soru Türkçe ise her zaman Türkçe cevap vermelisin.
     - If the question is in English, then answer in English. If the question is Turkish, then answer in Turkish.
-    - Sen yardımsever, nazik, gerçek dünyaya ait bilgilere dayalı olarak soru cevaplayan bir sohbet botusun. Yalnızca üniversiteler ile
-    ilgili sorulara cevap verebilirsin.
-    - Eğer sorulan soru üniversiteler ile ilgili değilse "Üzgünüm, bu soru üniversiteler ile ilgili olmadığından cevaplayamıyorum.
-    Lütfen başka bir soru sormayı deneyin." diye yanıt vermelisin.
-    - Eğer sorulan sorunun cevabı sana verilen bağlamda ya da sohbet geçmişinde yoksa "Üzgünüm, bu sorunun cevabını bilmiyorum.
-    Lütfen başka bir soru sormayı deneyin." diye yanıt vermelisin.
+    - Sen yardımsever, nazik, gerçek dünyaya ait bilgilere dayalı olarak soru cevaplayan bir sohbet botusun.
+    Yalnızca üniversiteler ile ilgili sorulara cevap verebilirsin, asla başka bir soruya cevap vermemelisin.
     <|USER|>
-    Şimdi kullanıcı sana bir soru soruyor. Bu soruyu sana verilen bağlam ve sohbet geçmişindeki bilgileri kullanarak yanıtla.
+    Şimdi kullanıcı sana bir soru soruyor. Bu soruyu sana verilen bağlam ve sohbet geçmişindeki bilgilerinden faydalanarak yanıtla.
 
     SORU: {question}
     BAĞLAM:
@@ -253,8 +252,10 @@ def show_chat_ui():
                 user_input = st.session_state.text_box
                 output = qa.run(user_input)
             # store the output
-            st.session_state.user.append(user_input)
-            st.session_state.bot.append(output)
+            if user_input not in st.session_state.user:
+                st.session_state.user.append(user_input)
+            if output not in st.session_state.bot:
+                st.session_state.bot.append(output)
 
         # BytesIO()
         if st.session_state["bot"]:
@@ -295,18 +296,18 @@ def main():
     )
 
     st.markdown(
-        "<center><h1>Sigma ChatBot</h1></center> <br> <br>",
+        "<center><h1>Üniversite Sohbet Botu</h1></center> <br> <br>",
         unsafe_allow_html=True,
     )
 
     add_bg_from_local("input/main.png", "input/sidebar.png")
 
     st.sidebar.markdown(
-        "<center><h3>Configurations for ChatBot</h3></center> <br> <br>",
+        "<center><h3>Sohbet Botu Ayarları</h3></center> <br> <br>",
         unsafe_allow_html=True,
     )
-    openai_api_key = st.sidebar.text_input("Please enter the OpenAI API Key:")
-    if st.sidebar.button("Use this OPEN AI Api Key"):
+    openai_api_key = st.sidebar.text_input("Lütfen OpenAI API Key'ini girin:")
+    if st.sidebar.button("Bu OpenAI API Key'ini kullan"):
         st.session_state.openai_api_key = openai_api_key
 
     if is_api_key_valid(st.session_state.openai_api_key):
@@ -314,7 +315,7 @@ def main():
         show_chat_ui()
 
     st.sidebar.markdown("<br> " * 3, unsafe_allow_html=True)
-    st.sidebar.write("Developed by Hüseyin Pekkan & Ata Turhan")
+    st.sidebar.write("Hüseyin Pekkan & Ata Turhan tarafından geliştirilmiştir")
 
 
 if __name__ == "__main__":

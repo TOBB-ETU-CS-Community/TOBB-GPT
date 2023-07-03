@@ -134,20 +134,24 @@ def create_vector_store_retriever(query):
 
     embeddings = OpenAIEmbeddings()
     vector_store = Chroma.from_documents(texts, embeddings)
-    return vector_store.as_retriever()
+    return vector_store.as_retriever(), urls
 
 
 def transform_question(question):
-    prompt = f"""Bu görevde yapman gereken bu şey, kullanıcı sorularını arama sorgularına dönüştürmektir. Bir kullanıcı soru sorduğunda,
-      soruyu, kullanıcının bilmek istediği bilgileri getiren bir Google arama sorgusuna dönüştürürsünüz.
-      Dönüştürmen gereken soru, tek tırnak işaretleri arasındadır:
+    system_message = """Bu görevde yapman gereken bu şey, kullanıcı sorularını arama sorgularına dönüştürmektir. Bir kullanıcı
+     soru sorduğunda, soruyu, kullanıcının bilmek istediği bilgileri getiren bir Google arama sorgusuna dönüştürürsün. Eğer soru türkçe
+     ise türkçe, ingilizce ise ingilizce bir cevap üret."""
+    user_message = """Dönüştürmen gereken soru, tek tırnak işaretleri arasındadır:
      '{question}'
      Verdiğin cevap da yalnızca arama sorgusu yer almalı, başka herhangi bir şey yazmamalı ve tırnak işareti gibi
      bir noktalama işareti de eklememelisin.
      """
-    model = "text-davinci-003"
+    messages = [
+        {"role": "system", "content": system_message},
+        {"role": "user", "content": user_message},
+    ]
     response = openai.Completion.create(
-        engine=model, prompt=prompt, max_tokens=100
+        engine="chatgpt-3.5-turbo", prompt=messages, max_tokens=100
     )
     return response.choices[0].text
 
@@ -201,7 +205,7 @@ def show_chat_ui():
 
     CEVAP: <|ASSISTANT|>
     """
-
+    # Transform output to json
     user_input = ""
     region = "switzerlandwest"  # huseyin
     # region = "eastus"  # ata
@@ -234,7 +238,7 @@ def show_chat_ui():
             with st.spinner("Soru internet üzerinde aranıyor:"):
                 query = transform_question(st.session_state.text_box)
                 query = query.replace('"', "").replace("'", "")
-                retriever = create_vector_store_retriever(query)
+                retriever, urls = create_vector_store_retriever(query)
                 qa = create_retrieval_qa(prompt_template, llm, retriever)
 
             with st.spinner(
@@ -242,6 +246,9 @@ def show_chat_ui():
             ):
                 user_input = st.session_state.text_box
                 output = qa.run(user_input)
+            output += (
+                f"\n\nSoru, şu kaynaklardan yararlanarak cevaplandı: \n {urls}"
+            )
 
             if user_input not in st.session_state.user:
                 st.session_state.user.append(user_input)

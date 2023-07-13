@@ -1,7 +1,6 @@
 import json
 import os
 
-import azure.cognitiveservices.speech as sdk
 import openai
 import requests
 import streamlit as st
@@ -19,7 +18,7 @@ from langchain.vectorstores import Chroma
 from modules.configurations import add_bg_from_local
 from streamlit_chat import message
 
-os.environ["AZURE_S2T_KEY"] = st.secrets["AZURE_S2T_KEY"]
+# os.environ["AZURE_S2T_KEY"] = st.secrets["AZURE_S2T_KEY"]
 os.environ["GOOGLE_CSE_ID"] = st.secrets["GOOGLE_CSE_ID"]
 os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
 
@@ -207,11 +206,11 @@ def show_chat_ui():
     """
     # Transform output to json
     user_input = ""
-    region = "switzerlandwest"  # huseyin
+    # region = "switzerlandwest"  # huseyin
     # region = "eastus"  # ata
     speech = None
-    if get_speech():
-        speech = speech2text(os.environ["AZURE_S2T_KEY"], region)
+    # f get_speech():
+    # speech = speech2text(os.environ["AZURE_S2T_KEY"], region)
     st.text_input(
         label="",
         value="" if speech is None else speech,
@@ -224,14 +223,10 @@ def show_chat_ui():
     with col5:
         answer = st.button("Cevapla")
 
-    config = sdk.SpeechConfig(
-        subscription=os.environ["AZURE_S2T_KEY"], region=region
-    )
-    config.speech_synthesis_language = "tr-TR"
+    # config = sdk.SpeechConfig(subscription=os.environ["AZURE_S2T_KEY"], region=region)
+    # config.speech_synthesis_language = "tr-TR"
     # config.speech_synthesis_voice_name = "en-US-JennyNeural"
-    speech_synthesizer = sdk.SpeechSynthesizer(
-        speech_config=config, audio_config=None
-    )
+    # speech_synthesizer = sdk.SpeechSynthesizer(speech_config=config, audio_config=None)
 
     try:
         if answer:
@@ -264,10 +259,8 @@ def show_chat_ui():
                     key=f"{str(i)}_user",
                 )
                 message(st.session_state["bot"][i], key=str(i))
-                result = speech_synthesizer.speak_text(
-                    st.session_state["bot"][i]
-                )
-                st.audio(result.audio_data)
+            # result = speech_synthesizer.speak_text(st.session_state["bot"][i])
+            # st.audio(result.audio_data)
     except Exception as e:
         _, center_err_col, _ = st.columns([1, 8, 1])
         center_err_col.markdown("<br>", unsafe_allow_html=True)

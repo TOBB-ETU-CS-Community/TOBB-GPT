@@ -22,6 +22,9 @@ unstructured = "^0.7.5"
 bs4 = "^0.0.1"
 tiktoken = "^0.4.0"
 google-auth-oauthlib = "^1.0.0"
+speechrecognition = "^3.10.0"
+gtts = "^2.3.2"
+pyaudio = "^0.2.13"
 
 
 [tool.poetry.group.dev.dependencies]

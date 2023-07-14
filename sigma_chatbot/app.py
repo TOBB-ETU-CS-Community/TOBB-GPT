@@ -3,6 +3,7 @@ import os
 
 import openai
 import requests
+import speech_recognition as s_r
 import streamlit as st
 from audio_recorder_streamlit import audio_recorder
 from langchain.chains import ConversationalRetrievalChain
@@ -57,6 +58,18 @@ def get_speech() -> bool:
             f.write(audio_bytes)
             return True
     return False
+
+
+def gets():
+    r = s_r.Recognizer()
+    my_mic = s_r.Microphone(
+        device_index=1
+    )  # my device index is 1, you have to put your device index
+    if st.button("Speak"):
+        with my_mic as source:
+            audio = r.listen(source)
+            return r.recognize_google(audio)
+    return None
 
 
 def speech2text(subscription_key, region) -> str:
@@ -140,7 +153,7 @@ def transform_question(question):
     system_message = """Bu görevde yapman gereken bu şey, kullanıcı sorularını arama sorgularına dönüştürmektir. Bir kullanıcı
      soru sorduğunda, soruyu, kullanıcının bilmek istediği bilgileri getiren bir Google arama sorgusuna dönüştürürsün. Eğer soru türkçe
      ise türkçe, ingilizce ise ingilizce bir cevap üret."""
-    user_message = """Dönüştürmen gereken soru, tek tırnak işaretleri arasındadır:
+    user_message = f"""Dönüştürmen gereken soru, tek tırnak işaretleri arasındadır:
      '{question}'
      Verdiğin cevap da yalnızca arama sorgusu yer almalı, başka herhangi bir şey yazmamalı ve tırnak işareti gibi
      bir noktalama işareti de eklememelisin.
@@ -149,10 +162,15 @@ def transform_question(question):
         {"role": "system", "content": system_message},
         {"role": "user", "content": user_message},
     ]
-    response = openai.Completion.create(
-        engine="chatgpt-3.5-turbo", prompt=messages, max_tokens=100
+    # response = openai.Completion.create(
+    #    engine="gpt-3.5-turbo", prompt=messages, max_tokens=100
+    # )
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=messages,
     )
-    return response.choices[0].text
+    st.write(response.choices[0].message.content)
+    return response.choices[0].message.content
 
 
 def create_retrieval_qa(prompt_template, llm, retriever):
@@ -208,11 +226,9 @@ def show_chat_ui():
     user_input = ""
     # region = "switzerlandwest"  # huseyin
     # region = "eastus"  # ata
-    speech = None
-    # f get_speech():
-    # speech = speech2text(os.environ["AZURE_S2T_KEY"], region)
+    speech = gets()
     st.text_input(
-        label="",
+        label="Please use the button above to ask question by speaking and the text area below to ask question by typing",
         value="" if speech is None else speech,
         placeholder="Sorunuzu buraya yazabilirsiniz:",
         key="text_box",

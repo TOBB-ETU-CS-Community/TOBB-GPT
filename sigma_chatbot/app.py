@@ -1,11 +1,13 @@
 import json
 import os
+from io import BytesIO
 
 import openai
 import requests
 import speech_recognition as s_r
 import streamlit as st
 from audio_recorder_streamlit import audio_recorder
+from gtts import gTTS
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
 from langchain.document_loaders import WebBaseLoader
@@ -258,8 +260,10 @@ def show_chat_ui():
                 user_input = st.session_state.text_box
                 output = qa.run(user_input)
             output += (
-                f"\n\nSoru, şu kaynaklardan yararlanarak cevaplandı: \n {urls}"
+                "\n\n Soru, şu kaynaklardan yararlanarak cevaplandı: \n\n"
             )
+            for url in urls:
+                output += url + "\n"
 
             if user_input not in st.session_state.user:
                 st.session_state.user.append(user_input)
@@ -267,6 +271,7 @@ def show_chat_ui():
                 st.session_state.bot.append(output)
 
         if st.session_state["bot"]:
+            sound_file = BytesIO()
             st.markdown("<br><br>", unsafe_allow_html=True)
             for i in range(len(st.session_state["bot"])):
                 message(
@@ -275,6 +280,9 @@ def show_chat_ui():
                     key=f"{str(i)}_user",
                 )
                 message(st.session_state["bot"][i], key=str(i))
+                tts = gTTS(st.session_state["bot"][i], lang="tr")
+                tts.write_to_fp(sound_file)
+                st.audio(sound_file)
             # result = speech_synthesizer.speak_text(st.session_state["bot"][i])
             # st.audio(result.audio_data)
     except Exception as e:

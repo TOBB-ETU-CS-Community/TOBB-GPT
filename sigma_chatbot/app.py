@@ -19,7 +19,6 @@ from langchain.tools import Tool
 from langchain.utilities import GoogleSearchAPIWrapper
 from langchain.vectorstores import Chroma
 from modules.configurations import add_bg_from_local
-from streamlit_chat import message
 
 # os.environ["AZURE_S2T_KEY"] = st.secrets["AZURE_S2T_KEY"]
 os.environ["GOOGLE_CSE_ID"] = st.secrets["GOOGLE_CSE_ID"]
@@ -245,7 +244,6 @@ def show_chat_ui():
     # config.speech_synthesis_language = "tr-TR"
     # config.speech_synthesis_voice_name = "en-US-JennyNeural"
     # speech_synthesizer = sdk.SpeechSynthesizer(speech_config=config, audio_config=None)
-
     try:
         if answer:
             with st.spinner("Soru internet üzerinde aranıyor:"):
@@ -274,15 +272,16 @@ def show_chat_ui():
             sound_file = BytesIO()
             st.markdown("<br><br>", unsafe_allow_html=True)
             for i in range(len(st.session_state["bot"])):
-                message(
-                    st.session_state["user"][i],
-                    is_user=True,
-                    key=f"{str(i)}_user",
-                )
-                message(st.session_state["bot"][i], key=str(i))
-                tts = gTTS(st.session_state["bot"][i], lang="tr")
-                tts.write_to_fp(sound_file)
-                st.audio(sound_file)
+                with st.chat_message(name="user", avatar="🧑"):
+                    st.write(
+                        st.session_state["user"][i],
+                        key=f"{str(i)}_user",
+                    )
+                with st.chat_message(name="assistant", avatar="🤖"):
+                    st.write(st.session_state["bot"][i], key=str(i))
+                    tts = gTTS(st.session_state["bot"][i], lang="tr")
+                    tts.write_to_fp(sound_file)
+                    st.audio(sound_file)
             # result = speech_synthesizer.speak_text(st.session_state["bot"][i])
             # st.audio(result.audio_data)
     except Exception as e:

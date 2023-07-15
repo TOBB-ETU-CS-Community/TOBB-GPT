@@ -18,8 +18,6 @@ It is a chatbot powered by OpenAI, Langchain, ChromeDB, and Azure APIs to educat
 
 https://sigma-chatbot.streamlit.app/
 
-https://sigma-chatbot.azurewebsites.net/
-
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)

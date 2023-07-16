@@ -66,7 +66,7 @@ def gets():
     my_mic = s_r.Microphone(
         device_index=1
     )  # my device index is 1, you have to put your device index
-    if st.button("Speak"):
+    if st.button("Konuşarak sorun 🎙️"):
         with my_mic as source:
             audio = r.listen(source)
             return r.recognize_google(audio)
@@ -127,7 +127,7 @@ def create_vector_store_retriever(query):
     tool = Tool(
         name="Google Search Snippets",
         description="Search Google for recent results.",
-        func=lambda query: search.results(query, 3),
+        func=lambda query: search.results(query, 5),
     )
     result = tool.run(query)
     # st.write(result)
@@ -153,11 +153,16 @@ def create_vector_store_retriever(query):
 def transform_question(question):
     system_message = """Bu görevde yapman gereken bu şey, kullanıcı sorularını arama sorgularına dönüştürmektir. Bir kullanıcı
      soru sorduğunda, soruyu, kullanıcının bilmek istediği bilgileri getiren bir Google arama sorgusuna dönüştürürsün. Eğer soru türkçe
-     ise türkçe, ingilizce ise ingilizce bir cevap üret."""
+     ise türkçe, ingilizce ise ingilizce bir cevap üret ve cevabı json formatında döndür. Json formatı şöyle olmalı:
+     {"query": output}
+     """
     user_message = f"""Dönüştürmen gereken soru, tek tırnak işaretleri arasındadır:
      '{question}'
      Verdiğin cevap da yalnızca arama sorgusu yer almalı, başka herhangi bir şey yazmamalı ve tırnak işareti gibi
-     bir noktalama işareti de eklememelisin.
+     bir noktalama işareti de eklememelisin. Sonucu json formatında dönmelisin."""
+
+    user_message += """Json formatı şöyle olmalı:
+     {"query": output}
      """
     messages = [
         {"role": "system", "content": system_message},
@@ -170,8 +175,9 @@ def transform_question(question):
         model="gpt-3.5-turbo",
         messages=messages,
     )
-    st.write(response.choices[0].message.content)
-    return response.choices[0].message.content
+    json_object = json.loads(response.choices[0].message.content)
+    st.write(json_object["query"])
+    return json_object["query"]
 
 
 def create_retrieval_qa(prompt_template, llm, retriever):
@@ -229,9 +235,9 @@ def show_chat_ui():
     # region = "eastus"  # ata
     speech = gets()
     st.text_input(
-        label="Please use the button above to ask question by speaking and the text area below to ask question by typing",
+        label="🎙️ ya da ✍️",
         value="" if speech is None else speech,
-        placeholder="Sorunuzu buraya yazabilirsiniz:",
+        placeholder="Yazarak sorun ✍️",
         key="text_box",
     )
 

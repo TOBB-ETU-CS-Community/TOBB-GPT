@@ -55,8 +55,11 @@ def get_speech() -> bool:
     ):
         # st.audio(audio_bytes, format="audio/wav")
         # write('output.wav', 44100, audio_bytes)
-        with open("output.wav", mode="bw") as f:
-            f.write(audio_bytes)
+        temp_file = os.getcwd()
+        temp_dir = temp_file.TemporaryDirectory()
+        temp_file_path = os.path.join(temp_dir.name, "output.wav")
+        with open(temp_file_path, "wb") as temp_file:
+            temp_file.write(audio_bytes)
             return True
     return False
 

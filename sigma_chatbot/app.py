@@ -1,13 +1,13 @@
 import json
 import os
-from io import BytesIO
+import time
 
 import openai
 import requests
 import speech_recognition as s_r
 import streamlit as st
 from audio_recorder_streamlit import audio_recorder
-from gtts import gTTS
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
 from langchain.document_loaders import WebBaseLoader
@@ -18,7 +18,6 @@ from langchain.text_splitter import MarkdownTextSplitter
 from langchain.tools import Tool
 from langchain.utilities import GoogleSearchAPIWrapper
 from langchain.vectorstores import Chroma
-from modules.configurations import add_bg_from_local
 
 # os.environ["AZURE_S2T_KEY"] = st.secrets["AZURE_S2T_KEY"]
 os.environ["GOOGLE_CSE_ID"] = st.secrets["GOOGLE_CSE_ID"]
@@ -32,6 +31,8 @@ if "bot" not in st.session_state:
     st.session_state.bot = []
 if "openai_api_key" not in st.session_state:
     st.session_state.openai_api_key = None
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
 
 def get_speech() -> bool:
@@ -179,7 +180,7 @@ def transform_question(question):
         messages=messages,
     )
     json_object = json.loads(response.choices[0].message.content)
-    st.write(json_object["query"])
+    # st.write(json_object["query"])
     return json_object["query"]
 
 
@@ -211,7 +212,12 @@ def is_api_key_valid(openai_api_key: str):
 
 
 def show_chat_ui():
-    llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
+    llm = ChatOpenAI(
+        model_name="gpt-3.5-turbo",
+        temperature=0,
+        streaming=True,
+        callbacks=[StreamingStdOutCallbackHandler()],
+    )
 
     prompt_template = """
     <|SYSTEM|>#
@@ -236,67 +242,69 @@ def show_chat_ui():
     user_input = ""
     # region = "switzerlandwest"  # huseyin
     # region = "eastus"  # ata
-    speech = gets()
-    st.text_input(
-        label="🎙️ ya da ✍️",
-        value="" if speech is None else speech,
-        placeholder="Yazarak sorun ✍️",
-        key="text_box",
-    )
+    gets()
 
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3, col4, col5 = st.columns(5)
-    with col5:
-        answer = st.button("Cevapla")
+
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
     # config = sdk.SpeechConfig(subscription=os.environ["AZURE_S2T_KEY"], region=region)
     # config.speech_synthesis_language = "tr-TR"
     # config.speech_synthesis_voice_name = "en-US-JennyNeural"
     # speech_synthesizer = sdk.SpeechSynthesizer(speech_config=config, audio_config=None)
     try:
-        if answer:
+        if user_input := st.chat_input(
+            # label="🎙️ ya da ✍️",
+            # value="" if speech is None else speech,
+            placeholder="Yazarak sorun ✍️",
+            key="text_box",
+            max_chars=100,
+        ):
+            # user_input = st.session_state.text_box
+            with st.chat_message("user"):
+                st.markdown(user_input)
+            st.session_state.messages.append(
+                {"role": "user", "content": user_input}
+            )
+
             with st.spinner("Soru internet üzerinde aranıyor:"):
                 query = transform_question(st.session_state.text_box)
                 query = query.replace('"', "").replace("'", "")
-                retriever, urls = create_vector_store_retriever(query)
-                qa = create_retrieval_qa(prompt_template, llm, retriever)
 
             with st.spinner(
                 "Soru internet üzerindeki kaynaklar ile cevaplanıyor:"
             ):
-                user_input = st.session_state.text_box
-                output = qa.run(user_input)
-            output += (
-                "\n\n Soru, şu kaynaklardan yararlanarak cevaplandı: \n\n"
+                retriever, urls = create_vector_store_retriever(query)
+                qa = create_retrieval_qa(prompt_template, llm, retriever)
+
+            llm_output = ""
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                responses = qa.run(user_input)
+
+                source_output = (
+                    "\n\n Soru, şu kaynaklardan yararlanarak cevaplandı: \n\n"
+                )
+                for url in urls:
+                    source_output += url + " \n\n "
+                responses += source_output
+                for response in responses:
+                    llm_output += response
+                    message_placeholder.markdown(f"{llm_output}▌")
+                    time.sleep(0.01)
+                message_placeholder.markdown(llm_output)
+
+            st.session_state.messages.append(
+                {"role": "assistant", "content": llm_output}
             )
-            for url in urls:
-                output += url + "\n"
 
-            if user_input not in st.session_state.user:
-                st.session_state.user.append(user_input)
-            if output not in st.session_state.bot:
-                st.session_state.bot.append(output)
-
-        if st.session_state["bot"]:
-            sound_file = BytesIO()
-            st.markdown("<br><br>", unsafe_allow_html=True)
-            for i in range(len(st.session_state["bot"])):
-                with st.chat_message(name="user", avatar="🧑"):
-                    st.write(
-                        st.session_state["user"][i],
-                        key=f"{str(i)}_user",
-                    )
-                with st.chat_message(name="assistant", avatar="🤖"):
-                    st.write(st.session_state["bot"][i], key=str(i))
-                    tts = gTTS(st.session_state["bot"][i], lang="tr")
-                    tts.write_to_fp(sound_file)
-                    st.audio(sound_file)
-            # result = speech_synthesizer.speak_text(st.session_state["bot"][i])
-            # st.audio(result.audio_data)
     except Exception as e:
         _, center_err_col, _ = st.columns([1, 8, 1])
         center_err_col.markdown("<br>", unsafe_allow_html=True)
-        center_err_col.error(f"An error occurred: {type(e).__name__}")
+        # center_err_col.error(f"An error occurred: {type(e).__name__}")
         print(e)
         center_err_col.error(
             "\nLütfen biz hatayı çözerken bekleyin. Teşekkürler ;]"
@@ -320,7 +328,7 @@ def main():
         unsafe_allow_html=True,
     )
 
-    add_bg_from_local("input/main.png", "input/sidebar.png")
+    # add_bg_from_local("input/main.png", "input/sidebar.png")
 
     st.sidebar.markdown(
         "<center><h3>Sohbet Botu Ayarları</h3></center> <br> <br>",

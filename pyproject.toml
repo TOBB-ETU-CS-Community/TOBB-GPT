@@ -25,6 +25,7 @@ google-auth-oauthlib = "^1.0.0"
 speechrecognition = "^3.10.0"
 gtts = "^2.3.2"
 pyaudio = "^0.2.13"
+huggingface-hub = "^0.16.4"
 
 
 [tool.poetry.group.dev.dependencies]

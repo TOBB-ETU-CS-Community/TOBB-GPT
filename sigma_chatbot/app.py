@@ -7,7 +7,7 @@ import requests
 import speech_recognition as s_r
 import streamlit as st
 from audio_recorder_streamlit import audio_recorder
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from langchain import HuggingFaceHub
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
 from langchain.document_loaders import WebBaseLoader
@@ -34,6 +34,8 @@ if "openai_api_key" not in st.session_state:
     st.session_state.openai_api_key = None
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "model" not in st.session_state:
+    st.session_state.model = None
 
 
 def get_speech() -> bool:
@@ -144,10 +146,16 @@ def create_vector_store_retriever(query):
         doc.page_content = doc.page_content
         doc.metadata = {"url": doc.metadata["source"]}
     # st.write(documents)
-    char_text_splitter = MarkdownTextSplitter(
-        chunk_size=2048,
-        chunk_overlap=128,
-    )
+    if st.session_state.model == "openai":
+        char_text_splitter = MarkdownTextSplitter(
+            chunk_size=2048,
+            chunk_overlap=256,
+        )
+    else:
+        char_text_splitter = MarkdownTextSplitter(
+            chunk_size=256,
+            chunk_overlap=32,
+        )
     texts = char_text_splitter.split_documents(documents)
 
     embeddings = OpenAIEmbeddings()
@@ -253,12 +261,19 @@ def show_sidebar():
 
 
 def start_chat():
-    llm = ChatOpenAI(
-        model_name="gpt-3.5-turbo",
-        temperature=0,
-        streaming=True,
-        callbacks=[StreamingStdOutCallbackHandler()],
-    )
+    if st.session_state.model.startswith("openai"):
+        llm = ChatOpenAI(
+            model_name="gpt-3.5-turbo",
+            temperature=0.1,
+        )
+    else:
+        llm = HuggingFaceHub(
+            repo_id=st.session_state.model,
+            model_kwargs={
+                "temperature": 0.1,
+                "max_length": 4096,
+            },
+        )
 
     prompt_template = """
     <|SYSTEM|>#
@@ -321,20 +336,20 @@ def start_chat():
                 retriever, urls = create_vector_store_retriever(query)
                 qa = create_retrieval_qa(prompt_template, llm, retriever)
 
-            llm_output = ""
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
-                responses = qa.run(user_input)
+                response = qa.run(user_input)
 
-                source_output = "\n\n\n Soru, şu kaynaklardan yararlanarak cevaplandı: \n\n"
+                source_output = " \n \n Soru, şu kaynaklardan yararlanarak cevaplandı: \n \n"
                 for url in urls:
-                    source_output += url + " \n\n "
-                responses += source_output
-                for response in responses:
-                    llm_output += response
-                    message_placeholder.markdown(f"{llm_output}▌")
+                    source_output += url + " \n \n "
+                response += source_output
+                llm_output = ""
+                for i in range(len(response)):
+                    llm_output += response[i]
+                    message_placeholder.write(f"{llm_output}▌")
                     time.sleep(0.01)
-                message_placeholder.markdown(llm_output)
+                message_placeholder.write(llm_output)
 
             st.session_state.messages.append(
                 {"role": "assistant", "content": llm_output}

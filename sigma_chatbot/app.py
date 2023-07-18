@@ -18,6 +18,7 @@ from langchain.text_splitter import MarkdownTextSplitter
 from langchain.tools import Tool
 from langchain.utilities import GoogleSearchAPIWrapper
 from langchain.vectorstores import Chroma
+from modules.utils import add_bg_from_local, set_page_config
 
 # os.environ["AZURE_S2T_KEY"] = st.secrets["AZURE_S2T_KEY"]
 os.environ["GOOGLE_CSE_ID"] = st.secrets["GOOGLE_CSE_ID"]
@@ -312,23 +313,22 @@ def show_chat_ui():
 
 
 def main():
-    st.set_page_config(
-        page_title="🤖 ChatBot",
-        page_icon="🤖",
-        initial_sidebar_state="expanded",
-        menu_items={
-            "Get Help": "https://github.com/olympian-21",
-            "Report a bug": None,
-            "About": "This is a chat bot for university students",
-        },
+    set_page_config()
+
+    background_img_path = os.path.join("static", "background", "Sky BG.png")
+    sidebar_background_img_path = os.path.join(
+        "static", "background", "Lila Gradient.png"
     )
+    page_markdown = add_bg_from_local(
+        background_img_path=background_img_path,
+        sidebar_background_img_path=sidebar_background_img_path,
+    )
+    st.markdown(page_markdown, unsafe_allow_html=True)
 
     st.markdown(
         "<center><h1>Üniversite Sohbet Botu</h1></center> <br> <br>",
         unsafe_allow_html=True,
     )
-
-    # add_bg_from_local("input/main.png", "input/sidebar.png")
 
     st.sidebar.markdown(
         "<center><h3>Sohbet Botu Ayarları</h3></center> <br> <br>",

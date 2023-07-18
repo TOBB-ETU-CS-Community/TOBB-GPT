@@ -3,26 +3,14 @@ import base64
 import streamlit as st
 
 
-def add_bg_from_local(background_file, sidebar_background_file):
-    """set the background images
-
-    Parameters
-    ----------
-    background_file : str
-        path to the background
-    sidebar_background_file : str
-        path to the sidebar background
-
-    Returns
-    -------
-    None
-    """
-    with open(background_file, "rb") as image_file:
+@st.cache_data
+def add_bg_from_local(background_img_path, sidebar_background_img_path):
+    with open(background_img_path, "rb") as image_file:
         encoded_string = base64.b64encode(image_file.read())
-    with open(sidebar_background_file, "rb") as image_file:
+    with open(sidebar_background_img_path, "rb") as image_file:
         sidebar_encoded_string = base64.b64encode(image_file.read())
 
-    page = f"""<style>
+    return f"""<style>
         .stApp {{
             background-image: url(data:image/png;base64,{encoded_string.decode()});
             background-size: 1500px 700px;
@@ -34,7 +22,19 @@ def add_bg_from_local(background_file, sidebar_background_file):
         }}
     </style>"""
 
-    st.markdown(page, unsafe_allow_html=True)
+
+def set_page_config():
+    st.set_page_config(
+        page_title="Sigma ChatBot",
+        page_icon="🤖",
+        layout="wide",
+        initial_sidebar_state="expanded",
+        menu_items={
+            "Get Help": "https://github.com/olympian-21",
+            "Report a bug": "https://github.com/olympian-21",
+            "About": "This is a chatbot that answers questions scraping the web.",
+        },
+    )
 
 
 def local_css(file_name):

@@ -203,16 +203,56 @@ def create_retrieval_qa(prompt_template, llm, retriever):
     )
 
 
-def is_api_key_valid(openai_api_key: str):
-    if openai_api_key is None or not openai_api_key.startswith("sk-"):
-        st.warning("Lütfen geçerli bir OpenAI API Key'i girin!", icon="⚠")
+def is_api_key_valid(model: str, api_key: str):
+    if api_key is None:
+        st.sidebar.warning("Lütfen geçerli bir API keyi girin!", icon="⚠")
+        return False
+    elif model == "openai" and not api_key.startswith("sk-"):
+        st.sidebar.warning("Lütfen geçerli bir API keyi girin!", icon="⚠")
+        return False
+    elif model == "huggingface" and not api_key.startswith("hf_"):
+        st.sidebar.warning("Lütfen geçerli bir API keyi girin!", icon="⚠")
         return False
     else:
-        os.environ["OPENAI_API_KEY"] = openai_api_key
+        key = (
+            "OPENAI_API_KEY"
+            if model == "openai"
+            else "HUGGINGFACEHUB_API_TOKEN"
+        )
+        os.environ[key] = api_key
         return True
 
 
-def show_chat_ui():
+def show_sidebar():
+    st.sidebar.markdown(
+        "<center><h1>Sohbet Botu Ayarları</h1></center> <br>",
+        unsafe_allow_html=True,
+    )
+
+    llm = st.sidebar.selectbox(
+        "Lütfen bir LLM seçin:",
+        [
+            "<Seçiniz>",
+            "openai/gpt-3.5-turbo",
+            "google/flan-t5-xxl",
+            "databricks/dolly-v2-3b",
+            "Writer/camel-5b-hf",
+            "Salesforce/xgen-7b-8k-base",
+            "tiiuae/falcon-40b",
+            "bigscience/bloom",
+        ],
+    )
+    st.session_state.model = llm
+    if llm != "<Seçiniz>":
+        st.sidebar.text_input(f"Lütfen {llm} API keyini girin:", key="api_key")
+        model = "openai" if llm.startswith("openai") else "huggingface"
+        if is_api_key_valid(model, st.session_state.api_key):
+            st.sidebar.success("API keyi başarıyla alındı.")
+            return True
+    return False
+
+
+def start_chat():
     llm = ChatOpenAI(
         model_name="gpt-3.5-turbo",
         temperature=0,
@@ -286,9 +326,7 @@ def show_chat_ui():
                 message_placeholder = st.empty()
                 responses = qa.run(user_input)
 
-                source_output = (
-                    "\n\n Soru, şu kaynaklardan yararlanarak cevaplandı: \n\n"
-                )
+                source_output = "\n\n\n Soru, şu kaynaklardan yararlanarak cevaplandı: \n\n"
                 for url in urls:
                     source_output += url + " \n\n "
                 responses += source_output
@@ -326,25 +364,13 @@ def main():
     st.markdown(page_markdown, unsafe_allow_html=True)
 
     st.markdown(
-        "<center><h1>Üniversite Sohbet Botu</h1></center> <br> <br>",
+        """<h1 style='text-align: center; color: black; font-size: 60px;'> 🤖 Üniversite Sohbet Botu </h1>
+        <br>""",
         unsafe_allow_html=True,
     )
 
-    st.sidebar.markdown(
-        "<center><h3>Sohbet Botu Ayarları</h3></center> <br> <br>",
-        unsafe_allow_html=True,
-    )
-
-    st.sidebar.text_input("Lütfen OpenAI API Key'ini girin:", key="openai_api")
-    # if st.sidebar.button("Bu OpenAI API Key'ini kullan"):
-    # openai_api_key = st.session_state.openai_api
-
-    if is_api_key_valid(st.session_state.openai_api):
-        st.sidebar.success("Bu OpenAI API Key'i başarıyla alındı.")
-        show_chat_ui()
-
-    st.sidebar.markdown("<br> " * 3, unsafe_allow_html=True)
-    st.sidebar.write("Hüseyin Pekkan & Ata Turhan tarafından geliştirilmiştir")
+    if show_sidebar():
+        start_chat()
 
 
 if __name__ == "__main__":

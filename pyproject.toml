@@ -26,6 +26,7 @@ speechrecognition = "^3.10.0"
 gtts = "^2.3.2"
 pyaudio = "^0.2.13"
 huggingface-hub = "^0.16.4"
+sentence-transformers = "^2.2.2"
 
 
 [tool.poetry.group.dev.dependencies]

@@ -11,6 +11,7 @@ from langchain import HuggingFaceHub
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
 from langchain.document_loaders import WebBaseLoader
+from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
@@ -158,17 +159,16 @@ def create_vector_store_retriever(query):
         )
     texts = char_text_splitter.split_documents(documents)
 
-    embeddings = OpenAIEmbeddings()
+    embeddings = (
+        OpenAIEmbeddings()
+        if st.session_state.model == "openai"
+        else HuggingFaceEmbeddings()
+    )
     vector_store = Chroma.from_documents(texts, embeddings)
     return vector_store.as_retriever(), urls
 
 
 def transform_question(question):
-    system_message = """Bu görevde yapman gereken bu şey, kullanıcı sorularını arama sorgularına dönüştürmektir. Bir kullanıcı
-     soru sorduğunda, soruyu, kullanıcının bilmek istediği bilgileri getiren bir Google arama sorgusuna dönüştürürsün. Eğer soru türkçe
-     ise türkçe, ingilizce ise ingilizce bir cevap üret ve cevabı json formatında döndür. Json formatı şöyle olmalı:
-     {"query": output}
-     """
     user_message = f"""Dönüştürmen gereken soru, tek tırnak işaretleri arasındadır:
      '{question}'
      Verdiğin cevap da yalnızca arama sorgusu yer almalı, başka herhangi bir şey yazmamalı ve tırnak işareti gibi
@@ -177,19 +177,23 @@ def transform_question(question):
     user_message += """Json formatı şöyle olmalı:
      {"query": output}
      """
+    if st.session_state.model != "openai":
+        return question
+    system_message = """Bu görevde yapman gereken bu şey, kullanıcı sorularını arama sorgularına dönüştürmektir. Bir kullanıcı
+     soru sorduğunda, soruyu, kullanıcının bilmek istediği bilgileri getiren bir Google arama sorgusuna dönüştürürsün. Eğer soru türkçe
+     ise türkçe, ingilizce ise ingilizce bir cevap üret ve cevabı json formatında döndür. Json formatı şöyle olmalı:
+     {"query": output}
+     """
     messages = [
         {"role": "system", "content": system_message},
         {"role": "user", "content": user_message},
     ]
-    # response = openai.Completion.create(
-    #    engine="gpt-3.5-turbo", prompt=messages, max_tokens=100
-    # )
-    response = openai.ChatCompletion.create(
+    completion = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=messages,
     )
-    json_object = json.loads(response.choices[0].message.content)
-    # st.write(json_object["query"])
+    response = completion.choices[0].message.content
+    json_object = json.loads(response)
     return json_object["query"]
 
 
@@ -326,19 +330,18 @@ def start_chat():
                 {"role": "user", "content": user_input}
             )
 
-            with st.spinner("Soru internet üzerinde aranıyor:"):
+            with st.spinner("Soru internet üzerinde aranıyor"):
                 query = transform_question(st.session_state.text_box)
                 query = query.replace('"', "").replace("'", "")
 
-            with st.spinner(
-                "Soru internet üzerindeki kaynaklar ile cevaplanıyor:"
-            ):
+            with st.spinner("Toplanan bilgiler derleniyor"):
                 retriever, urls = create_vector_store_retriever(query)
                 qa = create_retrieval_qa(prompt_template, llm, retriever)
 
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
-                response = qa.run(user_input)
+                with st.spinner("Soru cevaplanıyor"):
+                    response = qa.run(user_input)
 
                 source_output = " \n \n Soru, şu kaynaklardan yararlanarak cevaplandı: \n \n"
                 for url in urls:
@@ -377,6 +380,9 @@ def main():
         sidebar_background_img_path=sidebar_background_img_path,
     )
     st.markdown(page_markdown, unsafe_allow_html=True)
+
+    # css_file = os.path.join("style", "style.css")
+    # local_css(css_file)
 
     st.markdown(
         """<h1 style='text-align: center; color: black; font-size: 60px;'> 🤖 Üniversite Sohbet Botu </h1>

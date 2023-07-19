@@ -13,13 +13,18 @@ def add_bg_from_local(background_img_path, sidebar_background_img_path):
     return f"""<style>
         .stApp {{
             background-image: url(data:image/png;base64,{encoded_string.decode()});
-            background-size: 1500px 700px;
+            background-size: cover;
         }}
 
         section[data-testid="stSidebar"] {{
             background-image: url(data:image/png;base64,{sidebar_encoded_string.decode()});
-            background-size: 400px 800px;
+            background-size: cover;
         }}
+        div[class="stChatFloatingInputContainer css-90vs21 ehod42b2"]
+            {{
+                background: url(data:image/png;base64,{encoded_string.decode()});
+                background-size: cover;
+            }}
     </style>"""
 
 

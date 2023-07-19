@@ -24,6 +24,7 @@ def add_bg_from_local(background_img_path, sidebar_background_img_path):
             {{
                 background: url(data:image/png;base64,{encoded_string.decode()});
                 background-size: cover;
+                z-index: 1;
             }}
     </style>"""
 
@@ -46,18 +47,11 @@ def local_css(file_name):
     with open(file_name) as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
     style = """<style>
-        .row-widget.stButton {text-align: center;}
-        div[data-testid="column"]:nth-of-type(1)
-            {
-                text-align: center;
-            }
-            div[data-testid="column"]:nth-of-type(2)
-            {
-                text-align: center;
-            }
-            div[data-testid="column"]:nth-of-type(3)
-            {
-                text-align: center;
+        .row-widget.stButton {
+            text-align: center;
+            position: fixed;
+            bottom: 0;
+            z-index: 2;
             }
     </style>"""
     st.markdown(style, unsafe_allow_html=True)

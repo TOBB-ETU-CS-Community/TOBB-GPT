@@ -21,7 +21,7 @@ from langchain.text_splitter import MarkdownTextSplitter
 from langchain.tools import Tool
 from langchain.utilities import GoogleSearchAPIWrapper
 from langchain.vectorstores import Chroma
-from modules.utils import add_bg_from_local, set_page_config
+from modules.utils import add_bg_from_local, local_css, set_page_config
 
 # os.environ["AZURE_S2T_KEY"] = st.secrets["AZURE_S2T_KEY"]
 os.environ["GOOGLE_CSE_ID"] = st.secrets["GOOGLE_CSE_ID"]
@@ -301,10 +301,8 @@ def start_chat():
     CEVAP: <|ASSISTANT|>
     """
     # Transform output to json
-    user_input = ""
     # region = "switzerlandwest"  # huseyin
     # region = "eastus"  # ata
-    gets()
 
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -314,9 +312,9 @@ def start_chat():
             with st.chat_message("user", avatar="🧑"):
                 st.markdown(message["content"])
         else:
-            sound_file = BytesIO()
             with st.chat_message("assistant", avatar="🤖"):
                 st.markdown(message["content"])
+                sound_file = BytesIO()
                 tts = gTTS(message["content"], lang="tr")
                 tts.write_to_fp(sound_file)
                 st.audio(sound_file)
@@ -325,14 +323,17 @@ def start_chat():
     # config.speech_synthesis_language = "tr-TR"
     # config.speech_synthesis_voice_name = "en-US-JennyNeural"
     # speech_synthesizer = sdk.SpeechSynthesizer(speech_config=config, audio_config=None)
+
+    text_input = st.chat_input(
+        placeholder="Yazarak sorun ✍️",
+        key="text_box",
+        max_chars=100,
+    )
+    voice_input = gets()
+    user_input = voice_input or text_input
+
     try:
-        if user_input := st.chat_input(
-            # label="🎙️ ya da ✍️",
-            # value="" if speech is None else speech,
-            placeholder="Yazarak sorun ✍️",
-            key="text_box",
-            max_chars=100,
-        ):
+        if user_input:
             # user_input = st.session_state.text_box
             with st.chat_message("user", avatar="🧑"):
                 st.markdown(user_input)
@@ -341,7 +342,7 @@ def start_chat():
             )
 
             with st.spinner("Soru internet üzerinde aranıyor"):
-                query = transform_question(st.session_state.text_box)
+                query = transform_question(user_input)
                 query = query.replace('"', "").replace("'", "")
 
             with st.spinner("Toplanan bilgiler derleniyor"):
@@ -364,6 +365,7 @@ def start_chat():
                     message_placeholder.write(f"{llm_output}▌")
                     time.sleep(0.01)
                 message_placeholder.write(llm_output)
+                sound_file = BytesIO()
                 tts = gTTS(llm_output, lang="tr")
                 tts.write_to_fp(sound_file)
                 st.audio(sound_file)
@@ -395,8 +397,8 @@ def main():
     )
     st.markdown(page_markdown, unsafe_allow_html=True)
 
-    # css_file = os.path.join("style", "style.css")
-    # local_css(css_file)
+    css_file = os.path.join("style", "style.css")
+    local_css(css_file)
 
     st.markdown(
         """<h1 style='text-align: center; color: black; font-size: 60px;'> 🤖 Üniversite Sohbet Botu </h1>

@@ -147,7 +147,7 @@ def create_vector_store_retriever(query):
         doc.page_content = doc.page_content
         doc.metadata = {"url": doc.metadata["source"]}
     # st.write(documents)
-    if st.session_state.model == "openai":
+    if st.session_state.model.startswith("openai"):
         char_text_splitter = MarkdownTextSplitter(
             chunk_size=2048,
             chunk_overlap=256,
@@ -161,7 +161,7 @@ def create_vector_store_retriever(query):
 
     embeddings = (
         OpenAIEmbeddings()
-        if st.session_state.model == "openai"
+        if st.session_state.model.startswith("openai")
         else HuggingFaceEmbeddings()
     )
     vector_store = Chroma.from_documents(texts, embeddings)
@@ -177,7 +177,7 @@ def transform_question(question):
     user_message += """Json formatı şöyle olmalı:
      {"query": output}
      """
-    if st.session_state.model != "openai":
+    if not st.session_state.model.startswith("openai"):
         return question
     system_message = """Bu görevde yapman gereken bu şey, kullanıcı sorularını arama sorgularına dönüştürmektir. Bir kullanıcı
      soru sorduğunda, soruyu, kullanıcının bilmek istediği bilgileri getiren bir Google arama sorgusuna dönüştürürsün. Eğer soru türkçe
@@ -308,7 +308,9 @@ def start_chat():
     col1, col2, col3, col4, col5 = st.columns(5)
 
     for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
+        with st.chat_message(
+            message["role"], avatar="🧑" if message["role"] == "user" else "🤖"
+        ):
             st.markdown(message["content"])
 
     # config = sdk.SpeechConfig(subscription=os.environ["AZURE_S2T_KEY"], region=region)
@@ -324,7 +326,7 @@ def start_chat():
             max_chars=100,
         ):
             # user_input = st.session_state.text_box
-            with st.chat_message("user"):
+            with st.chat_message("user", avatar="🧑"):
                 st.markdown(user_input)
             st.session_state.messages.append(
                 {"role": "user", "content": user_input}
@@ -338,10 +340,11 @@ def start_chat():
                 retriever, urls = create_vector_store_retriever(query)
                 qa = create_retrieval_qa(prompt_template, llm, retriever)
 
-            with st.chat_message("assistant"):
+            with st.spinner("Soru cevaplanıyor"):
+                response = qa.run(user_input)
+
+            with st.chat_message("assistant", avatar="🤖"):
                 message_placeholder = st.empty()
-                with st.spinner("Soru cevaplanıyor"):
-                    response = qa.run(user_input)
 
                 source_output = " \n \n Soru, şu kaynaklardan yararlanarak cevaplandı: \n \n"
                 for url in urls:

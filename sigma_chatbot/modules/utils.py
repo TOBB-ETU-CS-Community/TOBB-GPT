@@ -44,8 +44,8 @@ def set_page_config():
 
 
 def local_css(file_name):
-    with open(file_name) as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    # with open(file_name) as f:
+    #    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
     style = """<style>
         .row-widget.stButton {
             text-align: center;

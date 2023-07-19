@@ -151,8 +151,8 @@ def create_vector_store_retriever(query):
     # st.write(documents)
     if st.session_state.model.startswith("openai"):
         char_text_splitter = MarkdownTextSplitter(
-            chunk_size=2048,
-            chunk_overlap=256,
+            chunk_size=1024,
+            chunk_overlap=128,
         )
     else:
         char_text_splitter = MarkdownTextSplitter(
@@ -270,13 +270,13 @@ def start_chat():
     if st.session_state.model.startswith("openai"):
         llm = ChatOpenAI(
             model_name="gpt-3.5-turbo",
-            temperature=0.1,
+            temperature=0,
         )
     else:
         llm = HuggingFaceHub(
             repo_id=st.session_state.model,
             model_kwargs={
-                "temperature": 0.1,
+                "temperature": 0,
                 "max_length": 4096,
             },
         )
@@ -355,10 +355,11 @@ def start_chat():
             with st.chat_message("assistant", avatar="🤖"):
                 message_placeholder = st.empty()
 
-                source_output = " \n \n Soru, şu kaynaklardan yararlanarak cevaplandı: \n \n"
-                for url in urls:
-                    source_output += url + " \n \n "
-                response += source_output
+                if not response.startswith("Üzgünüm"):
+                    source_output = " \n \n Soru, şu kaynaklardan yararlanarak cevaplandı: \n \n"
+                    for url in urls:
+                        source_output += url + " \n \n "
+                    response += source_output
                 llm_output = ""
                 for i in range(len(response)):
                     llm_output += response[i]

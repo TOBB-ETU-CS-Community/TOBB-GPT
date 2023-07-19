@@ -1,12 +1,14 @@
 import json
 import os
 import time
+from io import BytesIO
 
 import openai
 import requests
 import speech_recognition as s_r
 import streamlit as st
 from audio_recorder_streamlit import audio_recorder
+from gtts import gTTS
 from langchain import HuggingFaceHub
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
@@ -308,10 +310,16 @@ def start_chat():
     col1, col2, col3, col4, col5 = st.columns(5)
 
     for message in st.session_state.messages:
-        with st.chat_message(
-            message["role"], avatar="🧑" if message["role"] == "user" else "🤖"
-        ):
-            st.markdown(message["content"])
+        if message["role"] == "user":
+            with st.chat_message("user", avatar="🧑"):
+                st.markdown(message["content"])
+        else:
+            sound_file = BytesIO()
+            with st.chat_message("assistant", avatar="🤖"):
+                st.markdown(message["content"])
+                tts = gTTS(message["content"], lang="tr")
+                tts.write_to_fp(sound_file)
+                st.audio(sound_file)
 
     # config = sdk.SpeechConfig(subscription=os.environ["AZURE_S2T_KEY"], region=region)
     # config.speech_synthesis_language = "tr-TR"
@@ -356,6 +364,9 @@ def start_chat():
                     message_placeholder.write(f"{llm_output}▌")
                     time.sleep(0.01)
                 message_placeholder.write(llm_output)
+                tts = gTTS(llm_output, lang="tr")
+                tts.write_to_fp(sound_file)
+                st.audio(sound_file)
 
             st.session_state.messages.append(
                 {"role": "assistant", "content": llm_output}

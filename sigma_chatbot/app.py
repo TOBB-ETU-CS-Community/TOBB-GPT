@@ -1,19 +1,18 @@
 import json
 import os
 import time
+from collections import OrderedDict
 from io import BytesIO
 
 import openai
-import requests
 import speech_recognition as s_r
 import streamlit as st
-from audio_recorder_streamlit import audio_recorder
 from gtts import gTTS
 from langchain import HuggingFaceHub
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
 from langchain.document_loaders import WebBaseLoader
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.embeddings import HuggingFaceHubEmbeddings
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
@@ -26,6 +25,7 @@ from modules.utils import add_bg_from_local, local_css, set_page_config
 # os.environ["AZURE_S2T_KEY"] = st.secrets["AZURE_S2T_KEY"]
 os.environ["GOOGLE_CSE_ID"] = st.secrets["GOOGLE_CSE_ID"]
 os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
+STREAMING_INTERVAL = 0.002
 
 
 # Storing the chat
@@ -36,42 +36,53 @@ if "bot" not in st.session_state:
 if "openai_api_key" not in st.session_state:
     st.session_state.openai_api_key = None
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.messages = OrderedDict()
 if "model" not in st.session_state:
     st.session_state.model = None
 
 
-def get_speech() -> bool:
-    """takes user voice input
-
-    Parameters
-    ----------
-    None
-
-    Returns
-    -------
-    bool
-        True if user voice is taken successfully else False
-    """
-    if audio_bytes := audio_recorder(
-        text="Lütfen sesli bir soru sormak için sağdaki ikona tıklayın ve konuşmaya başlayın",
-        recording_color="#e8b62c",
-        neutral_color="#6aa36f",
-        icon_name="user",
-        icon_size="4x",
-    ):
-        # st.audio(audio_bytes, format="audio/wav")
-        # write('output.wav', 44100, audio_bytes)
-        temp_file = os.getcwd()
-        temp_dir = temp_file.TemporaryDirectory()
-        temp_file_path = os.path.join(temp_dir.name, "output.wav")
-        with open(temp_file_path, "wb") as temp_file:
-            temp_file.write(audio_bytes)
-            return True
-    return False
+def is_api_key_valid(model: str, api_key: str):
+    if api_key is None:
+        st.sidebar.warning("Lütfen geçerli bir API keyi girin!", icon="⚠")
+        return False
+    elif model == "openai" and not api_key.startswith("sk-"):
+        st.sidebar.warning(
+            "Lütfen geçerli bir OpenAI API keyi girin!", icon="⚠"
+        )
+        return False
+    elif model == "huggingface" and not api_key.startswith("hf_"):
+        st.sidebar.warning(
+            "Lütfen geçerli bir HuggingFace API keyi girin!", icon="⚠"
+        )
+        return False
+    else:
+        key = (
+            "OPENAI_API_KEY"
+            if model == "openai"
+            else "HUGGINGFACEHUB_API_TOKEN"
+        )
+        os.environ[key] = api_key
+        return True
 
 
-def gets():
+def create_llm():
+    return (
+        ChatOpenAI(
+            model_name="gpt-3.5-turbo",
+            temperature=0,
+        )
+        if st.session_state.model.startswith("openai")
+        else HuggingFaceHub(
+            repo_id=st.session_state.model,
+            model_kwargs={
+                "temperature": 0,
+                "max_length": 4096,
+            },
+        )
+    )
+
+
+def speech2text():
     r = s_r.Recognizer()
     my_mic = s_r.Microphone(
         device_index=1
@@ -83,94 +94,9 @@ def gets():
     return None
 
 
-def speech2text(subscription_key, region) -> str:
-    """convert speech to text
-
-    Parameters
-    ----------
-    subscription_key : str
-        Openai api key
-
-    Returns
-    -------
-    str
-        Text generated from speech
-    """
-    url = f"https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=tr-TR"
-    headers = {
-        "Content-type": 'audio/wav;codec="audio/pcm";',
-        # 'Ocp-Apim-Subscription-Key': subscription_key,
-        "Authorization": get_token(subscription_key, region),
-    }
-    with open("output.wav", "rb") as payload:
-        response = requests.request("POST", url, headers=headers, data=payload)
-        # st.write(response)
-        text = json.loads(response.text)
-        if "DisplayText" in text.keys():
-            return text["DisplayText"]
-
-
-def get_token(subscription_key, region) -> str:
-    """get access token for the given subscription key
-
-    Parameters
-    ----------
-    subscription_key : str
-        Openai api key
-
-    Returns
-    -------
-    str
-        access token
-    """
-    fetch_token_url = (
-        f"https://{region}.api.cognitive.microsoft.com/sts/v1.0/issueToken"
-    )
-    headers = {"Ocp-Apim-Subscription-Key": subscription_key}
-    response = requests.post(fetch_token_url, headers=headers)
-    return str(response.text)
-
-
-def create_vector_store_retriever(query):
-    search = GoogleSearchAPIWrapper()
-
-    tool = Tool(
-        name="Google Search Snippets",
-        description="Search Google for recent results.",
-        func=lambda query: search.results(query, 5),
-    )
-    result = tool.run(query)
-    # st.write(result)
-    urls = [val["link"] for val in result]
-    # st.write(urls)
-    loader = WebBaseLoader(urls)
-    documents = loader.load()
-    for doc in documents:
-        doc.page_content = doc.page_content
-        doc.metadata = {"url": doc.metadata["source"]}
-    # st.write(documents)
-    if st.session_state.model.startswith("openai"):
-        char_text_splitter = MarkdownTextSplitter(
-            chunk_size=1024,
-            chunk_overlap=128,
-        )
-    else:
-        char_text_splitter = MarkdownTextSplitter(
-            chunk_size=256,
-            chunk_overlap=32,
-        )
-    texts = char_text_splitter.split_documents(documents)
-
-    embeddings = (
-        OpenAIEmbeddings()
-        if st.session_state.model.startswith("openai")
-        else HuggingFaceEmbeddings()
-    )
-    vector_store = Chroma.from_documents(texts, embeddings)
-    return vector_store.as_retriever(), urls
-
-
 def transform_question(question):
+    if not st.session_state.model.startswith("openai"):
+        return question
     user_message = f"""Dönüştürmen gereken soru, tek tırnak işaretleri arasındadır:
      '{question}'
      Verdiğin cevap da yalnızca arama sorgusu yer almalı, başka herhangi bir şey yazmamalı ve tırnak işareti gibi
@@ -179,8 +105,6 @@ def transform_question(question):
     user_message += """Json formatı şöyle olmalı:
      {"query": output}
      """
-    if not st.session_state.model.startswith("openai"):
-        return question
     system_message = """Bu görevde yapman gereken bu şey, kullanıcı sorularını arama sorgularına dönüştürmektir. Bir kullanıcı
      soru sorduğunda, soruyu, kullanıcının bilmek istediği bilgileri getiren bir Google arama sorgusuna dönüştürürsün. Eğer soru türkçe
      ise türkçe, ingilizce ise ingilizce bir cevap üret ve cevabı json formatında döndür. Json formatı şöyle olmalı:
@@ -199,7 +123,46 @@ def transform_question(question):
     return json_object["query"]
 
 
-def create_retrieval_qa(prompt_template, llm, retriever):
+def search_web(query):
+    search = GoogleSearchAPIWrapper()
+    tool = Tool(
+        name="Google Search Snippets",
+        description="Search Google for recent results.",
+        func=lambda query: search.results(query, 3),
+    )
+    return tool.run(query)
+
+
+def create_vector_store(results):
+    print(results)
+    urls = [val["link"] for val in results]
+    loader = WebBaseLoader(urls)
+    documents = loader.load()
+    for doc in documents:
+        doc.metadata = {"url": doc.metadata["source"]}
+
+    if st.session_state.model.startswith("openai"):
+        char_text_splitter = MarkdownTextSplitter(
+            chunk_size=1024,
+            chunk_overlap=128,
+        )
+    else:
+        char_text_splitter = MarkdownTextSplitter(
+            chunk_size=256,
+            chunk_overlap=32,
+        )
+    texts = char_text_splitter.split_documents(documents)
+
+    embeddings = (
+        OpenAIEmbeddings()
+        if st.session_state.model.startswith("openai")
+        else HuggingFaceHubEmbeddings()
+    )
+    vector_store = Chroma.from_documents(texts, embeddings)
+    return [vector_store.as_retriever(), urls]
+
+
+def create_retrieval_qa(llm, prompt_template, retriever):
     PROMPT = PromptTemplate(
         template=prompt_template, input_variables=["context", "question"]
     )
@@ -215,26 +178,6 @@ def create_retrieval_qa(prompt_template, llm, retriever):
         combine_docs_chain_kwargs=combine_docs_chain_kwargs,
         memory=memory,
     )
-
-
-def is_api_key_valid(model: str, api_key: str):
-    if api_key is None:
-        st.sidebar.warning("Lütfen geçerli bir API keyi girin!", icon="⚠")
-        return False
-    elif model == "openai" and not api_key.startswith("sk-"):
-        st.sidebar.warning("Lütfen geçerli bir API keyi girin!", icon="⚠")
-        return False
-    elif model == "huggingface" and not api_key.startswith("hf_"):
-        st.sidebar.warning("Lütfen geçerli bir API keyi girin!", icon="⚠")
-        return False
-    else:
-        key = (
-            "OPENAI_API_KEY"
-            if model == "openai"
-            else "HUGGINGFACEHUB_API_TOKEN"
-        )
-        os.environ[key] = api_key
-        return True
 
 
 def show_sidebar():
@@ -266,33 +209,22 @@ def show_sidebar():
     return False
 
 
-def start_chat():
-    if st.session_state.model.startswith("openai"):
-        llm = ChatOpenAI(
-            model_name="gpt-3.5-turbo",
-            temperature=0,
-        )
-    else:
-        llm = HuggingFaceHub(
-            repo_id=st.session_state.model,
-            model_kwargs={
-                "temperature": 0,
-                "max_length": 4096,
-            },
-        )
-
-    prompt_template = """
+def create_main_prompt():
+    return """
     <|SYSTEM|>#
-    - Eğer sorulan soru doğrudan üniversiteleri liseler, lise eğitimi ve üniversite eğitimi ile ilgili değilse
-     "Üzgünüm, bu soru liseler ya da üniversiteler ile ilgili olmadığından cevaplayamıyorum. Lütfen başka bir soru sormayı
+    - Eğer sorulan soru doğrudan TOBB ETÜ (TOBB Ekonomi ve Teknoloji Üniversitesi) ile ilgili değilse
+     "Üzgünüm, bu soru TOBB ETÜ ile ilgili olmadığından cevaplayamıyorum. Lütfen başka bir soru sormayı
       deneyin." diye yanıt vermelisin ve başka
       herhangi bir şey söylememelisin.
     - Sen Türkçe konuşan bir botsun. Soru Türkçe ise her zaman Türkçe cevap vermelisin.
     - If the question is in English, then answer in English. If the question is Turkish, then answer in Turkish.
     - Sen yardımsever, nazik, gerçek dünyaya ait bilgilere dayalı olarak soru cevaplayan bir sohbet botusun.
-    Yalnızca üniversiteler ile ilgili sorulara cevap verebilirsin, asla başka bir soruya cevap vermemelisin.
+    - Cevapların açıklayıcı olmalı. Soru soran kişiye istediği tüm bilgiyi net bir şekilde vermelisin. Gerekirse uzun bir mesaj yazmaktan
+    da çekinme.
+    Yalnızca TOBB ETÜ Üniversitesi ile ilgili sorulara cevap verebilirsin, asla başka bir soruya cevap vermemelisin.
     <|USER|>
-    Şimdi kullanıcı sana bir soru soruyor. Bu soruyu sana verilen bağlam ve sohbet geçmişindeki bilgilerinden faydalanarak yanıtla.
+    Şimdi kullanıcı sana bir soru soruyor. Bu soruyu sana verilen bağlam ve sohbet geçmişindeki bilgilerinden faydalanarak
+    açık ve net bir biçimde yanıtla.
 
     SORU: {question}
     BAĞLAM:
@@ -300,89 +232,6 @@ def start_chat():
 
     CEVAP: <|ASSISTANT|>
     """
-    # Transform output to json
-    # region = "switzerlandwest"  # huseyin
-    # region = "eastus"  # ata
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    col1, col2, col3, col4, col5 = st.columns(5)
-
-    for message in st.session_state.messages:
-        if message["role"] == "user":
-            with st.chat_message("user", avatar="🧑"):
-                st.markdown(message["content"])
-        else:
-            with st.chat_message("assistant", avatar="🤖"):
-                st.markdown(message["content"])
-                sound_file = BytesIO()
-                tts = gTTS(message["content"], lang="tr")
-                tts.write_to_fp(sound_file)
-                st.audio(sound_file)
-
-    # config = sdk.SpeechConfig(subscription=os.environ["AZURE_S2T_KEY"], region=region)
-    # config.speech_synthesis_language = "tr-TR"
-    # config.speech_synthesis_voice_name = "en-US-JennyNeural"
-    # speech_synthesizer = sdk.SpeechSynthesizer(speech_config=config, audio_config=None)
-
-    text_input = st.chat_input(
-        placeholder="Yazarak sorun ✍️",
-        key="text_box",
-        max_chars=100,
-    )
-    voice_input = gets()
-    user_input = voice_input or text_input
-
-    try:
-        if user_input:
-            # user_input = st.session_state.text_box
-            with st.chat_message("user", avatar="🧑"):
-                st.markdown(user_input)
-            st.session_state.messages.append(
-                {"role": "user", "content": user_input}
-            )
-
-            with st.spinner("Soru internet üzerinde aranıyor"):
-                query = transform_question(user_input)
-                query = query.replace('"', "").replace("'", "")
-
-            with st.spinner("Toplanan bilgiler derleniyor"):
-                retriever, urls = create_vector_store_retriever(query)
-                qa = create_retrieval_qa(prompt_template, llm, retriever)
-
-            with st.spinner("Soru cevaplanıyor"):
-                response = qa.run(user_input)
-
-            with st.chat_message("assistant", avatar="🤖"):
-                message_placeholder = st.empty()
-
-                if not response.startswith("Üzgünüm"):
-                    source_output = " \n \n Soru, şu kaynaklardan yararlanarak cevaplandı: \n \n"
-                    for url in urls:
-                        source_output += url + " \n \n "
-                    response += source_output
-                llm_output = ""
-                for i in range(len(response)):
-                    llm_output += response[i]
-                    message_placeholder.write(f"{llm_output}▌")
-                    time.sleep(0.01)
-                message_placeholder.write(llm_output)
-                sound_file = BytesIO()
-                tts = gTTS(llm_output, lang="tr")
-                tts.write_to_fp(sound_file)
-                st.audio(sound_file)
-
-            st.session_state.messages.append(
-                {"role": "assistant", "content": llm_output}
-            )
-
-    except Exception as e:
-        _, center_err_col, _ = st.columns([1, 8, 1])
-        center_err_col.markdown("<br>", unsafe_allow_html=True)
-        # center_err_col.error(f"An error occurred: {type(e).__name__}")
-        print(e)
-        center_err_col.error(
-            "\nLütfen biz hatayı çözerken bekleyin. Teşekkürler ;]"
-        )
 
 
 def main():
@@ -407,8 +256,77 @@ def main():
         unsafe_allow_html=True,
     )
 
-    if show_sidebar():
-        start_chat()
+    if not show_sidebar():
+        return
+
+    for user_message, assistant_message in st.session_state.messages.items():
+        with st.chat_message("user", avatar="🧑"):
+            st.markdown(user_message)
+
+        with st.chat_message("assistant", avatar="🤖"):
+            st.markdown(assistant_message)
+            sound_file = BytesIO()
+            tts = gTTS(assistant_message, lang="tr")
+            tts.write_to_fp(sound_file)
+            st.audio(sound_file)
+
+    text_input = st.chat_input(
+        placeholder="Yazarak sorun ✍️",
+        key="text_box",
+        max_chars=100,
+    )
+    voice_input = speech2text()
+    user_input = voice_input or text_input
+
+    try:
+        if user_input:
+            with st.chat_message("user", avatar="🧑"):
+                st.markdown(user_input)
+
+            with st.spinner("Soru internet üzerinde aranıyor"):
+                query = transform_question(user_input)
+                query = query.replace('"', "").replace("'", "")
+
+            with st.spinner("Toplanan bilgiler derleniyor"):
+                results = search_web(query)
+                retriever, urls = create_vector_store(results)
+
+            with st.spinner("Soru cevaplanıyor"):
+                llm = create_llm()
+                prompt_template = create_main_prompt()
+                qa = create_retrieval_qa(llm, prompt_template, retriever)
+                response = qa.run(user_input)
+
+            with st.chat_message("assistant", avatar="🤖"):
+                message_placeholder = st.empty()
+
+                if not response.startswith("Üzgünüm"):
+                    source_output = " \n \n Soru, şu kaynaklardan yararlanarak cevaplandı: \n \n"
+                    for url in urls:
+                        source_output += url + " \n \n "
+                    response += source_output
+                llm_output = ""
+                for i in range(len(response)):
+                    llm_output += response[i]
+                    message_placeholder.write(f"{llm_output}▌")
+                    time.sleep(STREAMING_INTERVAL)
+                message_placeholder.write(llm_output)
+                sound_file = BytesIO()
+                tts = gTTS(llm_output, lang="tr")
+                tts.write_to_fp(sound_file)
+                st.audio(sound_file)
+
+            if user_input not in st.session_state.messages:
+                assistant_message = llm_output
+                st.session_state.messages[user_input] = assistant_message
+
+    except Exception as e:
+        _, center_err_col, _ = st.columns([1, 8, 1])
+        center_err_col.error(
+            "\n Lütfen biz hatayı çözerken bekleyin. Teşekkürler ;]"
+        )
+        print(f"An error occurred: {type(e).__name__}")
+        print(e)
 
 
 if __name__ == "__main__":

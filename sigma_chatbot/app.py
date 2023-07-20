@@ -2,12 +2,9 @@ import json
 import os
 import time
 from collections import OrderedDict
-from io import BytesIO
 
 import openai
-import speech_recognition as s_r
 import streamlit as st
-from gtts import gTTS
 from langchain import HuggingFaceHub
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
@@ -21,6 +18,9 @@ from langchain.tools import Tool
 from langchain.utilities import GoogleSearchAPIWrapper
 from langchain.vectorstores import Chroma
 from modules.utils import add_bg_from_local, local_css, set_page_config
+
+# from gtts import gTTS
+# import speech_recognition as s_r
 
 # os.environ["AZURE_S2T_KEY"] = st.secrets["AZURE_S2T_KEY"]
 os.environ["GOOGLE_CSE_ID"] = st.secrets["GOOGLE_CSE_ID"]
@@ -62,6 +62,8 @@ def is_api_key_valid(model: str, api_key: str):
             else "HUGGINGFACEHUB_API_TOKEN"
         )
         os.environ[key] = api_key
+        if model == "openai":
+            openai.api_key = api_key
         return True
 
 
@@ -82,16 +84,16 @@ def create_llm():
     )
 
 
-def speech2text():
-    r = s_r.Recognizer()
-    my_mic = s_r.Microphone(
-        device_index=1
-    )  # my device index is 1, you have to put your device index
-    if st.button("Konuşarak sorun 🎙️"):
-        with my_mic as source:
-            audio = r.listen(source)
-            return r.recognize_google(audio)
-    return None
+# def speech2text():
+# r = s_r.Recognizer()
+# my_mic = s_r.Microphone(
+#    device_index=1
+# )  # my device index is 1, you have to put your device index
+# if st.button("Konuşarak sorun 🎙️"):
+#    with my_mic as source:
+#        audio = r.listen(source)
+#        return r.recognize_google(audio)
+# return None
 
 
 def transform_question(question):
@@ -134,7 +136,6 @@ def search_web(query):
 
 
 def create_vector_store(results):
-    print(results)
     urls = [val["link"] for val in results]
     loader = WebBaseLoader(urls)
     documents = loader.load()
@@ -265,18 +266,19 @@ def main():
 
         with st.chat_message("assistant", avatar="🤖"):
             st.markdown(assistant_message)
-            sound_file = BytesIO()
-            tts = gTTS(assistant_message, lang="tr")
-            tts.write_to_fp(sound_file)
-            st.audio(sound_file)
+            # sound_file = BytesIO()
+            # tts = gTTS(assistant_message, lang="tr")
+            # tts.write_to_fp(sound_file)
+            # st.audio(sound_file)
 
     text_input = st.chat_input(
         placeholder="Yazarak sorun ✍️",
         key="text_box",
         max_chars=100,
     )
-    voice_input = speech2text()
-    user_input = voice_input or text_input
+    # voice_input = speech2text()
+    # user_input = voice_input or text_input
+    user_input = text_input
 
     try:
         if user_input:
@@ -311,10 +313,10 @@ def main():
                     message_placeholder.write(f"{llm_output}▌")
                     time.sleep(STREAMING_INTERVAL)
                 message_placeholder.write(llm_output)
-                sound_file = BytesIO()
-                tts = gTTS(llm_output, lang="tr")
-                tts.write_to_fp(sound_file)
-                st.audio(sound_file)
+                # sound_file = BytesIO()
+                # tts = gTTS(llm_output, lang="tr")
+                # tts.write_to_fp(sound_file)
+                # st.audio(sound_file)
 
             if user_input not in st.session_state.messages:
                 assistant_message = llm_output

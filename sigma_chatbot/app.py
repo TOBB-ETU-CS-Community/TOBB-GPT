@@ -25,14 +25,9 @@ from modules.utils import add_bg_from_local, local_css, set_page_config
 # os.environ["AZURE_S2T_KEY"] = st.secrets["AZURE_S2T_KEY"]
 os.environ["GOOGLE_CSE_ID"] = st.secrets["GOOGLE_CSE_ID"]
 os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
-STREAMING_INTERVAL = 0.002
+STREAMING_INTERVAL = 0.01
 
 
-# Storing the chat
-if "user" not in st.session_state:
-    st.session_state.user = []
-if "bot" not in st.session_state:
-    st.session_state.bot = []
 if "openai_api_key" not in st.session_state:
     st.session_state.openai_api_key = None
 if "messages" not in st.session_state:
@@ -252,7 +247,7 @@ def main():
     local_css(css_file)
 
     st.markdown(
-        """<h1 style='text-align: center; color: black; font-size: 60px;'> 🤖 Üniversite Sohbet Botu </h1>
+        """<h1 style='text-align: center; color: black; font-size: 60px;'> 🤖 TOBB ETÜ Sohbet Botu </h1>
         <br>""",
         unsafe_allow_html=True,
     )

@@ -28,51 +28,45 @@ os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
 STREAMING_INTERVAL = 0.01
 
 
-if "openai_api_key" not in st.session_state:
-    st.session_state.openai_api_key = None
 if "messages" not in st.session_state:
     st.session_state.messages = OrderedDict()
 if "model" not in st.session_state:
     st.session_state.model = None
 
 
-def is_api_key_valid(model: str, api_key: str):
+def is_api_key_valid(model_host: str, api_key: str):
     if api_key is None:
         st.sidebar.warning("Lütfen geçerli bir API keyi girin!", icon="⚠")
         return False
-    elif model == "openai" and not api_key.startswith("sk-"):
+    elif model_host == "openai" and not api_key.startswith("sk-"):
         st.sidebar.warning(
             "Lütfen geçerli bir OpenAI API keyi girin!", icon="⚠"
         )
         return False
-    elif model == "huggingface" and not api_key.startswith("hf_"):
+    elif model_host == "huggingface" and not api_key.startswith("hf_"):
         st.sidebar.warning(
             "Lütfen geçerli bir HuggingFace API keyi girin!", icon="⚠"
         )
         return False
     else:
-        key = (
-            "OPENAI_API_KEY"
-            if model == "openai"
-            else "HUGGINGFACEHUB_API_TOKEN"
-        )
-        os.environ[key] = api_key
-        if model == "openai":
+        if model_host == "openai":
             openai.api_key = api_key
+        else:
+            os.environ["HUGGINGFACEHUB_API_TOKEN"] = api_key
         return True
 
 
-def create_llm():
+def create_llm(model):
     return (
         ChatOpenAI(
-            model_name="gpt-3.5-turbo",
+            model_name=model.split("/")[1],
             temperature=0,
         )
-        if st.session_state.model.startswith("openai")
+        if model.startswith("openai")
         else HuggingFaceHub(
-            repo_id=st.session_state.model,
+            repo_id=model,
             model_kwargs={
-                "temperature": 0,
+                "temperature": 0.1,
                 "max_length": 4096,
             },
         )
@@ -91,8 +85,8 @@ def create_llm():
 # return None
 
 
-def transform_question(question):
-    if not st.session_state.model.startswith("openai"):
+def transform_question(model_host, question):
+    if model_host != "openai":
         return question
     user_message = f"""Dönüştürmen gereken soru, tek tırnak işaretleri arasındadır:
      '{question}'
@@ -130,14 +124,14 @@ def search_web(query):
     return tool.run(query)
 
 
-def create_vector_store(results):
+def create_vector_store(model_host, results):
     urls = [val["link"] for val in results]
     loader = WebBaseLoader(urls)
     documents = loader.load()
     for doc in documents:
         doc.metadata = {"url": doc.metadata["source"]}
 
-    if st.session_state.model.startswith("openai"):
+    if model_host == "openai":
         char_text_splitter = MarkdownTextSplitter(
             chunk_size=1024,
             chunk_overlap=128,
@@ -151,7 +145,7 @@ def create_vector_store(results):
 
     embeddings = (
         OpenAIEmbeddings()
-        if st.session_state.model.startswith("openai")
+        if model_host == "openai"
         else HuggingFaceHubEmbeddings()
     )
     vector_store = Chroma.from_documents(texts, embeddings)
@@ -214,7 +208,7 @@ def main():
     )
     st.markdown(page_markdown, unsafe_allow_html=True)
 
-    css_file = os.path.join("style", "style.css")
+    css_file = os.path.join("static", "style.css")
     local_css(css_file)
 
     st.markdown(
@@ -228,7 +222,7 @@ def main():
         unsafe_allow_html=True,
     )
 
-    llm = st.sidebar.selectbox(
+    model = st.sidebar.selectbox(
         "Lütfen bir LLM seçin:",
         [
             "<Seçiniz>",
@@ -241,17 +235,18 @@ def main():
             "bigscience/bloom",
         ],
     )
-    st.session_state.model = llm
-    if llm == "<Seçiniz>":
+    if model == "<Seçiniz>":
         st.sidebar.warning("Lütfen bir model seçin.")
         st.warning(
             "Lütfen sol taraftaki panelden bot için gerekli ayarlamaları yapın."
         )
         return
     else:
-        st.sidebar.text_input(f"Lütfen {llm} API keyini girin:", key="api_key")
-        model = "openai" if llm.startswith("openai") else "huggingface"
-        if is_api_key_valid(model, st.session_state.api_key):
+        st.sidebar.text_input(
+            f"Lütfen {model} API keyini girin:", key="api_key"
+        )
+        model_host = "openai" if model.startswith("openai") else "huggingface"
+        if is_api_key_valid(model_host, st.session_state.api_key):
             st.sidebar.success("API keyi başarıyla alındı.")
         else:
             st.warning(
@@ -285,15 +280,15 @@ def main():
                 st.markdown(user_input)
 
             with st.spinner("Soru internet üzerinde aranıyor"):
-                query = transform_question(user_input)
+                query = transform_question(model_host, user_input)
                 query = query.replace('"', "").replace("'", "")
 
             with st.spinner("Toplanan bilgiler derleniyor"):
                 results = search_web(query)
-                retriever, urls = create_vector_store(results)
+                retriever, urls = create_vector_store(model_host, results)
 
             with st.spinner("Soru cevaplanıyor"):
-                llm = create_llm()
+                llm = create_llm(model)
                 prompt_template = create_main_prompt()
                 qa = create_retrieval_qa(llm, prompt_template, retriever)
                 response = qa.run(user_input)

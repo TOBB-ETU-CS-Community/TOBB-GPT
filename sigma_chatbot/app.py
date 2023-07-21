@@ -30,8 +30,6 @@ STREAMING_INTERVAL = 0.01
 
 if "messages" not in st.session_state:
     st.session_state.messages = OrderedDict()
-if "model" not in st.session_state:
-    st.session_state.model = None
 
 
 def is_api_key_valid(model_host: str, api_key: str):
@@ -50,27 +48,11 @@ def is_api_key_valid(model_host: str, api_key: str):
         return False
     else:
         if model_host == "openai":
+            os.environ["OPENAI_API_KEY"] = api_key
             openai.api_key = api_key
         else:
             os.environ["HUGGINGFACEHUB_API_TOKEN"] = api_key
         return True
-
-
-def create_llm(model):
-    return (
-        ChatOpenAI(
-            model_name=model.split("/")[1],
-            temperature=0,
-        )
-        if model.startswith("openai")
-        else HuggingFaceHub(
-            repo_id=model,
-            model_kwargs={
-                "temperature": 0.1,
-                "max_length": 4096,
-            },
-        )
-    )
 
 
 # def speech2text():
@@ -88,19 +70,19 @@ def create_llm(model):
 def transform_question(model_host, question):
     if model_host != "openai":
         return question
-    user_message = f"""Dönüştürmen gereken soru, tek tırnak işaretleri arasındadır:
-     '{question}'
-     Verdiğin cevap da yalnızca arama sorgusu yer almalı, başka herhangi bir şey yazmamalı ve tırnak işareti gibi
-     bir noktalama işareti de eklememelisin. Sonucu json formatında dönmelisin."""
 
-    user_message += """Json formatı şöyle olmalı:
-     {"query": output}
-     """
     system_message = """Bu görevde yapman gereken bu şey, kullanıcı sorularını arama sorgularına dönüştürmektir. Bir kullanıcı
-     soru sorduğunda, soruyu, kullanıcının bilmek istediği bilgileri getiren bir Google arama sorgusuna dönüştürürsün. Eğer soru türkçe
+     soru sorduğunda, soruyu, kullanıcının bilmek istediği bilgileri getirecek bir Google arama sorgusuna dönüştürmelisin. Eğer soru türkçe
      ise türkçe, ingilizce ise ingilizce bir cevap üret ve cevabı json formatında döndür. Json formatı şöyle olmalı:
      {"query": output}
      """
+    user_message = f"""Dönüştürmen gereken soru, tek tırnak işaretleri arasındadır:
+     '{question}'
+     Verdiğin cevap da yalnızca arama sorgusu yer almalı, başka herhangi bir şey yazmamalı ve tırnak işareti gibi
+     bir noktalama işareti de eklememelisin. Sonucu json formatında dönmelisin.
+     Json formatı şöyle olmalı:
+     {{"query": output}}"""
+
     messages = [
         {"role": "system", "content": system_message},
         {"role": "user", "content": user_message},
@@ -114,12 +96,12 @@ def transform_question(model_host, question):
     return json_object["query"]
 
 
-def search_web(query):
+def search_web(query, link_count: int = 3):
     search = GoogleSearchAPIWrapper()
     tool = Tool(
         name="Google Search Snippets",
         description="Search Google for recent results.",
-        func=lambda query: search.results(query, 3),
+        func=lambda query: search.results(query, link_count),
     )
     return tool.run(query)
 
@@ -152,6 +134,47 @@ def create_vector_store(model_host, results):
     return [vector_store.as_retriever(), urls]
 
 
+def create_llm(model):
+    return (
+        ChatOpenAI(
+            model_name=model.split("/")[1],
+            temperature=0,
+        )
+        if model.startswith("openai")
+        else HuggingFaceHub(
+            repo_id=model,
+            model_kwargs={
+                "temperature": 0.1,
+                "max_length": 4096,
+            },
+        )
+    )
+
+
+def create_main_prompt():
+    return """
+    <|SYSTEM|>#
+    - Eğer sorulan soru doğrudan TOBB ETÜ (TOBB Ekonomi ve Teknoloji Üniversitesi) ile ilgili değilse
+     "Üzgünüm, bu soru TOBB ETÜ ile ilgili olmadığından cevaplayamıyorum. Lütfen başka bir soru sormayı
+      deneyin." diye yanıt vermelisin ve başka herhangi bir şey söylememelisin.
+    - Sen Türkçe konuşan bir botsun. Soru Türkçe ise her zaman Türkçe cevap vermelisin.
+    - If the question is in English, then answer in English. If the question is Turkish, then answer in Turkish.
+    - Sen çok yardımsever, nazik, gerçek dünyaya ait bilgilere dayalı olarak soru cevaplayan bir sohbet botusun.
+    - Cevapların açıklayıcı olmalı. Soru soran kişiye istediği tüm bilgiyi net bir şekilde vermelisin. Gerekirse uzun bir mesaj yazmaktan
+    da çekinme.
+    Yalnızca TOBB ETÜ Üniversitesi ile ilgili sorulara cevap verebilirsin, asla başka bir soruya cevap vermemelisin.
+    <|USER|>
+    Şimdi kullanıcı sana bir soru soruyor. Bu soruyu sana verilen bağlam ve sohbet geçmişindeki bilgilerinden faydalanarak
+    açık ve net bir biçimde yanıtla.
+
+    SORU: {question}
+    BAĞLAM:
+    {context}
+
+    CEVAP: <|ASSISTANT|>
+    """
+
+
 def create_retrieval_qa(llm, prompt_template, retriever):
     PROMPT = PromptTemplate(
         template=prompt_template, input_variables=["context", "question"]
@@ -168,31 +191,6 @@ def create_retrieval_qa(llm, prompt_template, retriever):
         combine_docs_chain_kwargs=combine_docs_chain_kwargs,
         memory=memory,
     )
-
-
-def create_main_prompt():
-    return """
-    <|SYSTEM|>#
-    - Eğer sorulan soru doğrudan TOBB ETÜ (TOBB Ekonomi ve Teknoloji Üniversitesi) ile ilgili değilse
-     "Üzgünüm, bu soru TOBB ETÜ ile ilgili olmadığından cevaplayamıyorum. Lütfen başka bir soru sormayı
-      deneyin." diye yanıt vermelisin ve başka
-      herhangi bir şey söylememelisin.
-    - Sen Türkçe konuşan bir botsun. Soru Türkçe ise her zaman Türkçe cevap vermelisin.
-    - If the question is in English, then answer in English. If the question is Turkish, then answer in Turkish.
-    - Sen yardımsever, nazik, gerçek dünyaya ait bilgilere dayalı olarak soru cevaplayan bir sohbet botusun.
-    - Cevapların açıklayıcı olmalı. Soru soran kişiye istediği tüm bilgiyi net bir şekilde vermelisin. Gerekirse uzun bir mesaj yazmaktan
-    da çekinme.
-    Yalnızca TOBB ETÜ Üniversitesi ile ilgili sorulara cevap verebilirsin, asla başka bir soruya cevap vermemelisin.
-    <|USER|>
-    Şimdi kullanıcı sana bir soru soruyor. Bu soruyu sana verilen bağlam ve sohbet geçmişindeki bilgilerinden faydalanarak
-    açık ve net bir biçimde yanıtla.
-
-    SORU: {question}
-    BAĞLAM:
-    {context}
-
-    CEVAP: <|ASSISTANT|>
-    """
 
 
 def main():
@@ -223,7 +221,7 @@ def main():
     )
 
     model = st.sidebar.selectbox(
-        "Lütfen bir LLM seçin:",
+        "Lütfen bir LLM seçin",
         [
             "<Seçiniz>",
             "openai/gpt-3.5-turbo",
@@ -237,16 +235,17 @@ def main():
     )
     if model == "<Seçiniz>":
         st.sidebar.warning("Lütfen bir model seçin.")
-        st.warning(
+        _, center_war_col, _ = st.columns([2, 5, 1])
+        center_war_col.warning(
             "Lütfen sol taraftaki panelden bot için gerekli ayarlamaları yapın."
         )
         return
     else:
-        st.sidebar.text_input(
-            f"Lütfen {model} API keyini girin:", key="api_key"
+        api_key = st.sidebar.text_input(
+            f"Lütfen {model} API keyini girin",
         )
         model_host = "openai" if model.startswith("openai") else "huggingface"
-        if is_api_key_valid(model_host, st.session_state.api_key):
+        if is_api_key_valid(model_host, api_key):
             st.sidebar.success("API keyi başarıyla alındı.")
         else:
             st.warning(
@@ -282,9 +281,9 @@ def main():
             with st.spinner("Soru internet üzerinde aranıyor"):
                 query = transform_question(model_host, user_input)
                 query = query.replace('"', "").replace("'", "")
+                results = search_web(query)
 
             with st.spinner("Toplanan bilgiler derleniyor"):
-                results = search_web(query)
                 retriever, urls = create_vector_store(model_host, results)
 
             with st.spinner("Soru cevaplanıyor"):

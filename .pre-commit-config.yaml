@@ -31,7 +31,7 @@ repos:
     rev: 6.0.0
     hooks:
       - id: flake8
-        args: [--ignore=E501]
+        args: ["--ignore=W503,E501"]
   - repo: https://github.com/sourcery-ai/sourcery
     rev: v1.0.7
     hooks:

@@ -176,35 +176,6 @@ def create_retrieval_qa(llm, prompt_template, retriever):
     )
 
 
-def show_sidebar():
-    st.sidebar.markdown(
-        "<center><h1>Sohbet Botu Ayarları</h1></center> <br>",
-        unsafe_allow_html=True,
-    )
-
-    llm = st.sidebar.selectbox(
-        "Lütfen bir LLM seçin:",
-        [
-            "<Seçiniz>",
-            "openai/gpt-3.5-turbo",
-            "google/flan-t5-xxl",
-            "databricks/dolly-v2-3b",
-            "Writer/camel-5b-hf",
-            "Salesforce/xgen-7b-8k-base",
-            "tiiuae/falcon-40b",
-            "bigscience/bloom",
-        ],
-    )
-    st.session_state.model = llm
-    if llm != "<Seçiniz>":
-        st.sidebar.text_input(f"Lütfen {llm} API keyini girin:", key="api_key")
-        model = "openai" if llm.startswith("openai") else "huggingface"
-        if is_api_key_valid(model, st.session_state.api_key):
-            st.sidebar.success("API keyi başarıyla alındı.")
-            return True
-    return False
-
-
 def create_main_prompt():
     return """
     <|SYSTEM|>#
@@ -252,8 +223,41 @@ def main():
         unsafe_allow_html=True,
     )
 
-    if not show_sidebar():
+    st.sidebar.markdown(
+        "<center><h1>Sohbet Botu Ayarları</h1></center> <br>",
+        unsafe_allow_html=True,
+    )
+
+    llm = st.sidebar.selectbox(
+        "Lütfen bir LLM seçin:",
+        [
+            "<Seçiniz>",
+            "openai/gpt-3.5-turbo",
+            "google/flan-t5-xxl",
+            "databricks/dolly-v2-3b",
+            "Writer/camel-5b-hf",
+            "Salesforce/xgen-7b-8k-base",
+            "tiiuae/falcon-40b",
+            "bigscience/bloom",
+        ],
+    )
+    st.session_state.model = llm
+    if llm == "<Seçiniz>":
+        st.sidebar.warning("Lütfen bir model seçin.")
+        st.warning(
+            "Lütfen sol taraftaki panelden bot için gerekli ayarlamaları yapın."
+        )
         return
+    else:
+        st.sidebar.text_input(f"Lütfen {llm} API keyini girin:", key="api_key")
+        model = "openai" if llm.startswith("openai") else "huggingface"
+        if is_api_key_valid(model, st.session_state.api_key):
+            st.sidebar.success("API keyi başarıyla alındı.")
+        else:
+            st.warning(
+                "Lütfen sol taraftaki panelden bot için gerekli ayarlamaları yapın."
+            )
+            return
 
     for user_message, assistant_message in st.session_state.messages.items():
         with st.chat_message("user", avatar="🧑"):
@@ -297,7 +301,10 @@ def main():
             with st.chat_message("assistant", avatar="🤖"):
                 message_placeholder = st.empty()
 
-                if not response.startswith("Üzgünüm"):
+                if not (
+                    response.startswith("Üzgünüm")
+                    or response.startswith("I'm sorry")
+                ):
                     source_output = " \n \n Soru, şu kaynaklardan yararlanarak cevaplandı: \n \n"
                     for url in urls:
                         source_output += url + " \n \n "
@@ -320,7 +327,7 @@ def main():
     except Exception as e:
         _, center_err_col, _ = st.columns([1, 8, 1])
         center_err_col.error(
-            "\n Lütfen biz hatayı çözerken bekleyin. Teşekkürler ;]"
+            "\n Sorunuz cevaplanamadı. Lütfen başka bir soru sormayı deneyin. Teşekkürler ;]"
         )
         print(f"An error occurred: {type(e).__name__}")
         print(e)

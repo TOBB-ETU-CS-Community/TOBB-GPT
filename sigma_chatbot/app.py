@@ -248,7 +248,8 @@ def main():
         if is_api_key_valid(model_host, api_key):
             st.sidebar.success("API keyi başarıyla alındı.")
         else:
-            st.warning(
+            _, center_war_col, _ = st.columns([2, 5, 1])
+            center_war_col.warning(
                 "Lütfen sol taraftaki panelden bot için gerekli ayarlamaları yapın."
             )
             return

@@ -4,6 +4,7 @@ import time
 from collections import OrderedDict
 
 import openai
+import pandas as pd
 import streamlit as st
 from langchain import HuggingFaceHub
 from langchain.chains import ConversationalRetrievalChain
@@ -106,7 +107,7 @@ def search_web(query, link_count: int = 3):
     return tool.run(query)
 
 
-def create_vector_store(model_host, results):
+def create_query_vector_store(model_host, results):
     urls = [val["link"] for val in results]
     loader = WebBaseLoader(urls)
     documents = loader.load()
@@ -132,6 +133,65 @@ def create_vector_store(model_host, results):
     )
     vector_store = Chroma.from_documents(texts, embeddings)
     return [vector_store.as_retriever(), urls]
+
+
+def create_document_vector_store(model_host):
+    excel = pd.read_excel(
+        io="./static/Links.xlsx",
+        sheet_name="Sheet1",
+    )
+    links = excel.Links.values.tolist()
+    documents = []
+    for i, link in enumerate(links):
+        print(i, link)
+        try:
+            loader = WebBaseLoader(link)
+            documents.extend(loader.load())
+        except Exception:
+            continue
+
+    for doc in documents:
+        doc.metadata = {"url": doc.metadata["source"]}
+
+    if model_host == "openai":
+        char_text_splitter = MarkdownTextSplitter(
+            chunk_size=1024,
+            chunk_overlap=128,
+        )
+    else:
+        char_text_splitter = MarkdownTextSplitter(
+            chunk_size=256,
+            chunk_overlap=32,
+        )
+    texts = char_text_splitter.split_documents(documents)
+
+    embeddings = (
+        OpenAIEmbeddings()
+        if model_host == "openai"
+        else HuggingFaceHubEmbeddings()
+    )
+    persist_directory = f"./sigma_chatbot/chroma_db_{model_host}"
+    vector_store = Chroma.from_documents(
+        documents=texts,
+        embedding=embeddings,
+        persist_directory=persist_directory,
+    )
+    vector_store.persist()
+    return vector_store.as_retriever()
+
+
+def load_document_vector_store(model_host):
+    embeddings = (
+        OpenAIEmbeddings()
+        if model_host == "openai"
+        else HuggingFaceHubEmbeddings()
+    )
+    persist_directory = f"./sigma_chatbot/chroma_db_{model_host}"
+    vector_store = Chroma(
+        embedding_function=embeddings,
+        persist_directory=persist_directory,
+    )
+    return vector_store.as_retriever()
 
 
 def create_llm(model):
@@ -254,6 +314,12 @@ def main():
             )
             return
 
+    with st.sidebar:
+        choice = st.radio(
+            "Botun nasıl çalışacağını seçin",
+            ["İnternetteki sayfalar ile", "Hazır dokümanlar ile"],
+        )
+
     for user_message, assistant_message in st.session_state.messages.items():
         with st.chat_message("user", avatar="🧑"):
             st.markdown(user_message)
@@ -279,13 +345,27 @@ def main():
             with st.chat_message("user", avatar="🧑"):
                 st.markdown(user_input)
 
-            with st.spinner("Soru internet üzerinde aranıyor"):
-                query = transform_question(model_host, user_input)
-                query = query.replace('"', "").replace("'", "")
-                results = search_web(query)
+            if choice == "İnternetteki sayfalar ile":
+                with st.spinner("Soru internet üzerinde aranıyor"):
+                    query = transform_question(model_host, user_input)
+                    query = query.replace('"', "").replace("'", "")
+                    results = search_web(query)
 
-            with st.spinner("Toplanan bilgiler derleniyor"):
-                retriever, urls = create_vector_store(model_host, results)
+                with st.spinner("Toplanan bilgiler derleniyor"):
+                    retriever, urls = create_query_vector_store(
+                        model_host, results
+                    )
+            elif choice == "Hazır dokümanlar ile":
+                if os.path.isdir(f"./sigma_chatbot/chroma_db_{model_host}"):
+                    with st.spinner(
+                        "TOBB ETÜ'ye ait geçmiş tarihte taranmış sayfalar yükleniyor"
+                    ):
+                        retriever = load_document_vector_store(model_host)
+                else:
+                    with st.spinner(
+                        "TOBB ETÜ'ye ait 100e yakın sayfa taranıyor ve işleniyor"
+                    ):
+                        retriever = create_document_vector_store(model_host)
 
             with st.spinner("Soru cevaplanıyor"):
                 llm = create_llm(model)
@@ -296,9 +376,12 @@ def main():
             with st.chat_message("assistant", avatar="🤖"):
                 message_placeholder = st.empty()
 
-                if not (
-                    response.startswith("Üzgünüm")
-                    or response.startswith("I'm sorry")
+                if (
+                    not (
+                        response.startswith("Üzgünüm")
+                        or response.startswith("I'm sorry")
+                    )
+                    and choice == "İnternetteki sayfalar ile"
                 ):
                     source_output = " \n \n Soru, şu kaynaklardan yararlanarak cevaplandı: \n \n"
                     for url in urls:

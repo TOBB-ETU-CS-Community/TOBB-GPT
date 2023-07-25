@@ -142,8 +142,13 @@ def create_document_vector_store(model_host):
     )
     links = excel.Links.values.tolist()
     documents = []
+    bar = st.progress(0, text="Pages are being scraped")
     for i, link in enumerate(links):
         print(i, link)
+        bar.progress(
+            (i + 1) / len(links),
+            text=f"{(i + 1)}/{len(links)} pages are scraped",
+        )
         try:
             loader = WebBaseLoader(link)
             documents.extend(loader.load())
@@ -164,18 +169,27 @@ def create_document_vector_store(model_host):
             chunk_overlap=32,
         )
     texts = char_text_splitter.split_documents(documents)
+    # st.write(type(texts))
+    # st.write(texts)
 
     embeddings = (
         OpenAIEmbeddings()
         if model_host == "openai"
         else HuggingFaceHubEmbeddings()
     )
-    persist_directory = f"./sigma_chatbot/chroma_db_{model_host}"
+    persist_directory = f"./tobb_gpt/chroma_db_{model_host}"
     vector_store = Chroma.from_documents(
-        documents=texts,
+        documents=texts[0:2],
         embedding=embeddings,
         persist_directory=persist_directory,
     )
+    bar = st.progress(0, text="Documents are being embedded into vector store")
+    for i in range(2, len(texts)):
+        bar.progress(
+            (i + 1) / len(texts),
+            text=f"{(i + 1)}/{len(texts)} documents are embedded into vector store",
+        )
+        vector_store.add_documents(documents=[texts[i]])
     vector_store.persist()
     return vector_store.as_retriever()
 
@@ -186,7 +200,7 @@ def load_document_vector_store(model_host):
         if model_host == "openai"
         else HuggingFaceHubEmbeddings()
     )
-    persist_directory = f"./sigma_chatbot/chroma_db_{model_host}"
+    persist_directory = f"./tobb_gpt/chroma_db_{model_host}"
     vector_store = Chroma(
         embedding_function=embeddings,
         persist_directory=persist_directory,
@@ -356,7 +370,7 @@ def main():
                         model_host, results
                     )
             elif choice == "Hazır dokümanlar ile":
-                if os.path.exists(f"./sigma_chatbot/chroma_db_{model_host}"):
+                if os.path.exists(f"./tobb_gpt/chroma_db_{model_host}"):
                     with st.spinner(
                         "TOBB ETÜ'ye ait geçmiş tarihte taranmış sayfalar yükleniyor"
                     ):

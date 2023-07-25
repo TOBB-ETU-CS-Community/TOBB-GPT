@@ -356,7 +356,7 @@ def main():
                         model_host, results
                     )
             elif choice == "Hazır dokümanlar ile":
-                if os.path.isdir(f"./sigma_chatbot/chroma_db_{model_host}"):
+                if os.path.exists(f"./sigma_chatbot/chroma_db_{model_host}"):
                     with st.spinner(
                         "TOBB ETÜ'ye ait geçmiş tarihte taranmış sayfalar yükleniyor"
                     ):

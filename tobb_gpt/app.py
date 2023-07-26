@@ -142,12 +142,12 @@ def create_document_vector_store(model_host):
     )
     links = excel.Links.values.tolist()
     documents = []
-    bar = st.progress(0, text="Pages are being scraped")
+    bar = st.progress(0, text="Web sayfaları taranıyor")
     for i, link in enumerate(links):
         print(i, link)
         bar.progress(
             (i + 1) / len(links),
-            text=f"{(i + 1)}/{len(links)} pages are scraped",
+            text=f"{(i + 1)}/{len(links)} web sayfası tarandı",
         )
         try:
             loader = WebBaseLoader(link)
@@ -183,11 +183,12 @@ def create_document_vector_store(model_host):
         embedding=embeddings,
         persist_directory=persist_directory,
     )
-    bar = st.progress(0, text="Documents are being embedded into vector store")
+    bar = st.progress(0, text="Dokümanlar vektör veritabanına ekleniyor")
     for i in range(2, len(texts)):
+        time.sleep(0.01)
         bar.progress(
             (i + 1) / len(texts),
-            text=f"{(i + 1)}/{len(texts)} documents are embedded into vector store",
+            text=f"{(i + 1)}/{len(texts)} doküman vektör veritabanına eklendi",
         )
         vector_store.add_documents(documents=[texts[i]])
     vector_store.persist()
@@ -377,7 +378,7 @@ def main():
                         retriever = load_document_vector_store(model_host)
                 else:
                     with st.spinner(
-                        "TOBB ETÜ'ye ait 100e yakın sayfa taranıyor ve işleniyor"
+                        "TOBB ETÜ'ye ait 200e yakın sayfa taranıyor ve işleniyor"
                     ):
                         retriever = create_document_vector_store(model_host)
 

@@ -73,8 +73,9 @@ def transform_question(model_host, question):
         return question
 
     system_message = """Bu görevde yapman gereken bu şey, kullanıcı sorularını arama sorgularına dönüştürmektir. Bir kullanıcı
-     soru sorduğunda, soruyu, kullanıcının bilmek istediği bilgileri getirecek bir Google arama sorgusuna dönüştürmelisin. Eğer soru türkçe
-     ise türkçe, ingilizce ise ingilizce bir cevap üret ve cevabı json formatında döndür. Json formatı şöyle olmalı:
+     soru sorduğunda, soruyu, kullanıcının bilmek istediği bilgileri getirecek bir Google arama sorgusuna dönüştürmelisin. Soru bir fiil
+     içeriyorsa bu fiili kaldırarak onu bir isime dönüştürmen gerekiyor. Eğer soru türkçe ise türkçe, ingilizce ise ingilizce
+     bir cevap üret ve cevabı json formatında döndür. Json formatı şöyle olmalı:
      {"query": output}
      """
     user_message = f"""Dönüştürmen gereken soru, tek tırnak işaretleri arasındadır:
@@ -94,10 +95,11 @@ def transform_question(model_host, question):
     )
     response = completion.choices[0].message.content
     json_object = json.loads(response)
+    # st.write(json_object)
     return json_object["query"]
 
 
-def search_web(query, link_count: int = 3):
+def search_web(query, link_count: int = 5):
     search = GoogleSearchAPIWrapper()
     tool = Tool(
         name="Google Search Snippets",
@@ -132,7 +134,7 @@ def create_query_vector_store(model_host, results):
         else HuggingFaceHubEmbeddings()
     )
     vector_store = Chroma.from_documents(texts, embeddings)
-    return [vector_store.as_retriever(), urls]
+    return [vector_store.as_retriever(search_kwargs={"k": 5}), urls]
 
 
 def create_document_vector_store(model_host):
@@ -192,7 +194,7 @@ def create_document_vector_store(model_host):
         )
         vector_store.add_documents(documents=[texts[i]])
     vector_store.persist()
-    return vector_store.as_retriever()
+    return vector_store.as_retriever(search_kwargs={"k": 5})
 
 
 def load_document_vector_store(model_host):
@@ -206,7 +208,7 @@ def load_document_vector_store(model_host):
         embedding_function=embeddings,
         persist_directory=persist_directory,
     )
-    return vector_store.as_retriever()
+    return vector_store.as_retriever(search_kwargs={"k": 5})
 
 
 def create_llm(model):
@@ -232,6 +234,10 @@ def create_main_prompt():
     - Eğer sorulan soru doğrudan TOBB ETÜ (TOBB Ekonomi ve Teknoloji Üniversitesi) ile ilgili değilse
      "Üzgünüm, bu soru TOBB ETÜ ile ilgili olmadığından cevaplayamıyorum. Lütfen başka bir soru sormayı
       deneyin." diye yanıt vermelisin ve başka herhangi bir şey söylememelisin.
+    - Eğer sorulan sorunun yanıtı sana verilen bağlamda bulunmuyorsa kesinlikle kendi bilgilerini kullanarak bir cevap üretme, sadece
+     "Üzgünüm, bu soruya dair bir bilgim yok. Lütfen başka bir soru sormayı
+      deneyin." diye yanıt vermelisin ve başka herhangi bir şey söylememelisin.
+    geçmişinde bu sorulara ait bir cevap yoksa
     - Sen Türkçe konuşan bir botsun. Soru Türkçe ise her zaman Türkçe cevap vermelisin.
     - If the question is in English, then answer in English. If the question is Turkish, then answer in Turkish.
     - Sen çok yardımsever, nazik, gerçek dünyaya ait bilgilere dayalı olarak soru cevaplayan bir sohbet botusun.
@@ -316,10 +322,10 @@ def main():
         )
         return
     else:
-        api_key = st.sidebar.text_input(
-            f"Lütfen {model} API keyini girin",
-        )
         model_host = "openai" if model.startswith("openai") else "huggingface"
+        api_key = st.sidebar.text_input(
+            f"Lütfen {model_host.title()} API keyini girin",
+        )
         if is_api_key_valid(model_host, api_key):
             st.sidebar.success("API keyi başarıyla alındı.")
         else:

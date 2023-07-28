@@ -16,7 +16,7 @@
 
 It is a chatbot powered by OpenAI, Langchain, ChromeDB, and Google APIs to educate students about TOBB University of Economics and Technology.
 
-https://tobb_gpt.streamlit.app/
+https://tobb-gpt.streamlit.app/
 
 ## Table of Contents
 

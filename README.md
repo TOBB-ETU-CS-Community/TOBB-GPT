@@ -16,19 +16,9 @@
 
 It is a chatbot powered by OpenAI, Langchain, ChromeDB, and Google APIs to educate students about TOBB University of Economics and Technology.
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
+
 https://tobb-gpt.streamlit.app/
-=======
-https://sigma-chatbot.streamlit.app/
->>>>>>> parent of 253626a (commit: deploy address changed)
-=======
-https://tobb_gpt.streamlit.app/
->>>>>>> parent of facb1fe (commit: deploy address changed)
-=======
-https://tobb-gpt.streamlit.app/
->>>>>>> facb1fe0ede16a3b951319cbf5c1b61240da1410
+
 
 ## Table of Contents
 

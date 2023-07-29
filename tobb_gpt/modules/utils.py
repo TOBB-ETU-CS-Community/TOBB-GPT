@@ -31,14 +31,15 @@ def add_bg_from_local(background_img_path, sidebar_background_img_path):
 
 def set_page_config():
     st.set_page_config(
-        page_title="Sigma ChatBot",
+        page_title="TOBB GPT",
         page_icon="🤖",
         layout="wide",
         initial_sidebar_state="expanded",
         menu_items={
             "Get Help": "https://github.com/olympian-21",
             "Report a bug": "https://github.com/olympian-21",
-            "About": "This is a chatbot that answers questions scraping the web.",
+            "About": """It is a chatbot powered by OpenAI, Langchain, ChromeDB, and
+ Google APIs to educate students about TOBB University of Economics and Technology.""",
         },
     )
 

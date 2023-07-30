@@ -133,3 +133,6 @@ dmypy.json
 
 # audio outputs
 *.wav
+
+# large vector db
+chroma_db_openai/

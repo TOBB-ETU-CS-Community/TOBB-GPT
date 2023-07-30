@@ -335,11 +335,13 @@ def main():
             )
             return
 
-    with st.sidebar:
-        choice = st.radio(
-            "Botun nasıl çalışacağını seçin",
-            ["İnternetteki sayfalar ile", "Hazır dokümanlar ile"],
-        )
+    # with st.sidebar:
+    #    choice = st.radio(
+    #        "Botun nasıl çalışacağını seçin",
+    #        ["İnternetteki sayfalar ile", "Hazır dokümanlar ile"],
+    #    )
+
+    choice = "İnternetteki sayfalar ile"
 
     for user_message, assistant_message in st.session_state.messages.items():
         with st.chat_message("user", avatar="🧑"):

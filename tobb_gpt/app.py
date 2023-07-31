@@ -34,6 +34,16 @@ if "messages" not in st.session_state:
 
 
 def is_api_key_valid(model_host: str, api_key: str):
+    """
+    Check if the provided API key is valid for the specified model host.
+
+    Parameters:
+        model_host (str): The name of the model host. Possible values are "openai" or "huggingface".
+        api_key (str): The API key to be validated.
+
+    Returns:
+        bool: True if the API key is valid for the specified model host; False otherwise.
+    """
     if api_key is None:
         st.sidebar.warning("Lütfen geçerli bir API keyi girin!", icon="⚠")
         return False
@@ -69,6 +79,17 @@ def is_api_key_valid(model_host: str, api_key: str):
 
 
 def transform_question(model_host, question):
+    """
+    Transform a user's question into a search query for a given model host.
+
+    Parameters:
+        model_host (str): The name of the model host. Possible values are "openai" or other model hosts.
+        question (str): The user's question to be transformed into a search query.
+
+    Returns:
+        str: The search query as a JSON-formatted string in the following format:
+             {"query": output}
+    """
     if model_host != "openai":
         return question
 
@@ -100,6 +121,16 @@ def transform_question(model_host, question):
 
 
 def search_web(query, link_count: int = 5):
+    """
+    Perform a web search using the Google Search API to find recent results for the given query.
+
+    Parameters:
+        query (str): The search query string.
+        link_count (int, optional): The number of search results to retrieve. Defaults to 5.
+
+    Returns:
+        list: A list of search results as URLs obtained from the Google Search API.
+    """
     search = GoogleSearchAPIWrapper()
     tool = Tool(
         name="Google Search Snippets",
@@ -110,6 +141,17 @@ def search_web(query, link_count: int = 5):
 
 
 def create_query_vector_store(model_host, results):
+    """
+    Create a query vector store for document retrieval based on the specified model host.
+
+    Parameters:
+        model_host (str): The name of the model host. Possible values are "openai" or other model hosts.
+        results (list): A list of search results, each containing at least a "link" key.
+
+    Returns:
+        list: A list containing a query vector store retriever and a list of URLs from the search results.
+
+    """
     urls = [val["link"] for val in results]
     loader = WebBaseLoader(urls)
     documents = loader.load()
@@ -138,6 +180,15 @@ def create_query_vector_store(model_host, results):
 
 
 def create_document_vector_store(model_host):
+    """
+    Create a document vector store for document retrieval based on the specified model host.
+
+    Parameters:
+        model_host (str): The name of the model host. Possible values are "openai" or other model hosts.
+
+    Returns:
+        vector_store.retriever.Retriever: A retriever object that allows similarity search based on document embeddings.
+    """
     excel = pd.read_excel(
         io="./static/Links.xlsx",
         sheet_name="Sheet1",
@@ -198,6 +249,15 @@ def create_document_vector_store(model_host):
 
 
 def load_document_vector_store(model_host):
+    """
+    Load a pre-existing document vector store for document retrieval based on the specified model host.
+
+    Parameters:
+        model_host (str): The name of the model host. Possible values are "openai" or other model hosts.
+
+    Returns:
+        vector_store.retriever.Retriever: A retriever object that allows similarity search based on document embeddings.
+    """
     embeddings = (
         OpenAIEmbeddings()
         if model_host == "openai"
@@ -212,6 +272,15 @@ def load_document_vector_store(model_host):
 
 
 def create_llm(model):
+    """
+    Create a language model (LLM) for chat-based applications based on the specified model.
+
+    Parameters:
+        model (str): The model name or repository ID of the language model to be used.
+
+    Returns:
+        Union[ChatOpenAI, HuggingFaceHub]: A language model instance suitable for chat-based applications.
+    """
     return (
         ChatOpenAI(
             model_name=model.split("/")[1],
@@ -229,6 +298,12 @@ def create_llm(model):
 
 
 def create_main_prompt():
+    """
+    Create the main prompt for the chatbot to respond to user queries about TOBB ETÜ (TOBB University).
+
+    Returns:
+        str: The main prompt template for the chatbot.
+    """
     return """
     <|SYSTEM|>#
     - Eğer sorulan soru doğrudan TOBB ETÜ (TOBB Ekonomi ve Teknoloji Üniversitesi) ile ilgili değilse
@@ -257,6 +332,18 @@ def create_main_prompt():
 
 
 def create_retrieval_qa(llm, prompt_template, retriever):
+    """
+    Create a Conversational Retrieval Chain for question-answering based on the provided components.
+
+    Parameters:
+        llm (Union[ChatOpenAI, HuggingFaceHub]): The language model used for conversational responses.
+        prompt_template (str): The main prompt template for the chatbot to respond to user queries.
+        retriever (vector_store.retriever.Retriever): The retriever object for document retrieval.
+
+    Returns:
+        langchain.ConversationalRetrievalChain: A Conversational Retrieval Chain for question-answering.
+
+    """
     PROMPT = PromptTemplate(
         template=prompt_template, input_variables=["context", "question"]
     )

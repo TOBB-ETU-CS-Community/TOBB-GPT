@@ -33,7 +33,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = OrderedDict()
 
 
-def is_api_key_valid(model_host: str, api_key: str):
+def is_api_key_valid(model_host: str, api_key: str) -> bool:
     """
     Check if the provided API key is valid for the specified model host.
 
@@ -78,7 +78,7 @@ def is_api_key_valid(model_host: str, api_key: str):
 # return None
 
 
-def transform_question(model_host, question):
+def transform_question(model_host: str, question: str) -> str:
     """
     Transform a user's question into a search query for a given model host.
 
@@ -120,7 +120,7 @@ def transform_question(model_host, question):
     return json_object["query"]
 
 
-def search_web(query, link_count: int = 5):
+def search_web(query: str, link_count: int = 5) -> list:
     """
     Perform a web search using the Google Search API to find recent results for the given query.
 
@@ -140,7 +140,7 @@ def search_web(query, link_count: int = 5):
     return tool.run(query)
 
 
-def create_query_vector_store(model_host, results):
+def create_query_vector_store(model_host: str, results: list) -> list:
     """
     Create a query vector store for document retrieval based on the specified model host.
 
@@ -158,16 +158,11 @@ def create_query_vector_store(model_host, results):
     for doc in documents:
         doc.metadata = {"url": doc.metadata["source"]}
 
-    if model_host == "openai":
-        char_text_splitter = MarkdownTextSplitter(
-            chunk_size=1024,
-            chunk_overlap=128,
-        )
-    else:
-        char_text_splitter = MarkdownTextSplitter(
-            chunk_size=256,
-            chunk_overlap=32,
-        )
+    char_text_splitter = (
+        MarkdownTextSplitter(chunk_size=1024, chunk_overlap=128)
+        if model_host == "openai"
+        else MarkdownTextSplitter(chunk_size=256, chunk_overlap=32)
+    )
     texts = char_text_splitter.split_documents(documents)
 
     embeddings = (
@@ -179,7 +174,7 @@ def create_query_vector_store(model_host, results):
     return [vector_store.as_retriever(search_kwargs={"k": 5}), urls]
 
 
-def create_document_vector_store(model_host):
+def create_document_vector_store(model_host: str) -> Chroma:
     """
     Create a document vector store for document retrieval based on the specified model host.
 
@@ -248,7 +243,7 @@ def create_document_vector_store(model_host):
     return vector_store.as_retriever(search_kwargs={"k": 5})
 
 
-def load_document_vector_store(model_host):
+def load_document_vector_store(model_host: str) -> Chroma:
     """
     Load a pre-existing document vector store for document retrieval based on the specified model host.
 
@@ -256,7 +251,7 @@ def load_document_vector_store(model_host):
         model_host (str): The name of the model host. Possible values are "openai" or other model hosts.
 
     Returns:
-        vector_store.retriever.Retriever: A retriever object that allows similarity search based on document embeddings.
+        vector_store.retriever: A retriever object that allows similarity search based on document embeddings.
     """
     embeddings = (
         OpenAIEmbeddings()
@@ -271,7 +266,7 @@ def load_document_vector_store(model_host):
     return vector_store.as_retriever(search_kwargs={"k": 5})
 
 
-def create_llm(model):
+def create_llm(model: str) -> ChatOpenAI | HuggingFaceHub:
     """
     Create a language model (LLM) for chat-based applications based on the specified model.
 
@@ -297,7 +292,7 @@ def create_llm(model):
     )
 
 
-def create_main_prompt():
+def create_main_prompt() -> str:
     """
     Create the main prompt for the chatbot to respond to user queries about TOBB ETÜ (TOBB University).
 
@@ -331,7 +326,9 @@ def create_main_prompt():
     """
 
 
-def create_retrieval_qa(llm, prompt_template, retriever):
+def create_retrieval_qa(
+    llm: str, prompt_template: str, retriever: Chroma
+) -> ConversationalRetrievalChain:
     """
     Create a Conversational Retrieval Chain for question-answering based on the provided components.
 

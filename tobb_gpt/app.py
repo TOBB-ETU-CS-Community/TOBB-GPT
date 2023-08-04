@@ -287,19 +287,21 @@ def create_llm(model: str) -> ChatOpenAI | HuggingFaceHub:
             model_kwargs={
                 "temperature": 0.1,
                 "max_length": 4096,
+                "max_new_tokens": 500,
             },
         )
     )
 
 
-def create_main_prompt() -> str:
+def create_main_prompt(model_host: str) -> str:
     """
     Create the main prompt for the chatbot to respond to user queries about TOBB ETÜ (TOBB University).
 
     Returns:
         str: The main prompt template for the chatbot.
     """
-    return """
+    return (
+        """
     <|SYSTEM|>#
     - Eğer sorulan soru doğrudan TOBB ETÜ (TOBB Ekonomi ve Teknoloji Üniversitesi) ile ilgili değilse
      "Üzgünüm, bu soru TOBB ETÜ ile ilgili olmadığından cevaplayamıyorum. Lütfen başka bir soru sormayı
@@ -324,6 +326,33 @@ def create_main_prompt() -> str:
 
     CEVAP: <|ASSISTANT|>
     """
+        if model_host == "openai"
+        else """
+    - Eğer sorulan soru doğrudan TOBB ETÜ (TOBB Ekonomi ve Teknoloji Üniversitesi) ile ilgili değilse
+     "Üzgünüm, bu soru TOBB ETÜ ile ilgili olmadığından cevaplayamıyorum. Lütfen başka bir soru sormayı
+      deneyin." diye yanıt vermelisin ve başka herhangi bir şey söylememelisin.
+    - Eğer sorulan sorunun yanıtı sana verilen bağlamda bulunmuyorsa kesinlikle kendi bilgilerini kullanarak bir cevap üretme, sadece
+     "Üzgünüm, bu soruya dair bir bilgim yok. Lütfen başka bir soru sormayı
+      deneyin." diye yanıt vermelisin ve başka herhangi bir şey söylememelisin.
+    geçmişinde bu sorulara ait bir cevap yoksa
+    - Sen Türkçe konuşan bir botsun. Soru Türkçe ise her zaman Türkçe cevap vermelisin.
+    - If the question is in English, then answer in English. If the question is Turkish, then answer in Turkish.
+    - Sen çok yardımsever, nazik, gerçek dünyaya ait bilgilere dayalı olarak soru cevaplayan bir sohbet botusun.
+    - Cevapların açıklayıcı olmalı. Soru soran kişiye istediği tüm bilgiyi net bir şekilde vermelisin. Gerekirse uzun bir mesaj yazmaktan
+    da çekinme.
+    Yalnızca TOBB ETÜ Üniversitesi ile ilgili sorulara cevap verebilirsin, asla başka bir soruya cevap vermemelisin.
+
+    Şimdi kullanıcı sana bir soru soruyor. Bu soruyu sana verilen bağlam ve sohbet geçmişindeki bilgilerinden faydalanarak
+    açık ve net bir biçimde yanıtla.
+
+    SORU: {question}
+    BAĞLAM:
+    {context}
+
+
+
+    """
+    )
 
 
 def create_retrieval_qa(
@@ -346,7 +375,7 @@ def create_retrieval_qa(
     )
     combine_docs_chain_kwargs = {"prompt": PROMPT}
     memory = ConversationBufferMemory(
-        memory_key="chat_history", return_messages=True
+        memory_key="chat_history", return_messages=True, output_key="answer"
     )
 
     return ConversationalRetrievalChain.from_llm(
@@ -355,6 +384,7 @@ def create_retrieval_qa(
         retriever=retriever,
         combine_docs_chain_kwargs=combine_docs_chain_kwargs,
         memory=memory,
+        return_source_documents=True,
     )
 
 
@@ -384,20 +414,22 @@ def main():
         "<center><h1>Sohbet Botu Ayarları</h1></center> <br>",
         unsafe_allow_html=True,
     )
-
-    model = st.sidebar.selectbox(
-        "Lütfen bir LLM seçin",
-        [
-            "<Seçiniz>",
-            "openai/gpt-3.5-turbo",
-            "google/flan-t5-xxl",
-            "databricks/dolly-v2-3b",
-            "Writer/camel-5b-hf",
-            "Salesforce/xgen-7b-8k-base",
-            "tiiuae/falcon-40b",
-            "bigscience/bloom",
-        ],
-    )
+    llm_models = [
+        "openai/gpt-3.5-turbo",
+        "meta-llama/Llama-2-70b-chat-hf",
+        "upstage/Llama-2-70b-instruct-v2",
+        "upstage/Llama-2-70b-instruct",
+        "stabilityai/StableBeluga2",
+        "augtoma/qCammel-70-x",
+        "google/flan-t5-xxl",
+        "google/flan-ul2",
+        "databricks/dolly-v2-3b",
+        "Writer/camel-5b-hf",
+        "Salesforce/xgen-7b-8k-base",
+        "tiiuae/falcon-40b",
+        "bigscience/bloom",
+    ]
+    model = st.sidebar.selectbox("Lütfen bir LLM seçin", llm_models)
     if model == "<Seçiniz>":
         st.sidebar.warning("Lütfen bir model seçin.")
         _, center_war_col, _ = st.columns([2, 5, 1])
@@ -476,9 +508,14 @@ def main():
 
             with st.spinner("Soru cevaplanıyor"):
                 llm = create_llm(model)
-                prompt_template = create_main_prompt()
-                qa = create_retrieval_qa(llm, prompt_template, retriever)
-                response = qa.run(user_input)
+                prompt_template = create_main_prompt(model_host)
+                qa_chain = create_retrieval_qa(llm, prompt_template, retriever)
+                answer = qa_chain(
+                    {"question": user_input}, return_only_outputs=True
+                )
+                response = answer["answer"]
+                # st.write(len(answer["source_documents"]))
+                # st.write(*answer["source_documents"])
 
             with st.chat_message("assistant", avatar="🤖"):
                 message_placeholder = st.empty()

@@ -171,7 +171,7 @@ def create_query_vector_store(model_host: str, results: list) -> list:
         else HuggingFaceHubEmbeddings()
     )
     vector_store = Chroma.from_documents(texts, embeddings)
-    return [vector_store.as_retriever(search_kwargs={"k": 5}), urls]
+    return [vector_store, urls]
 
 
 def create_document_vector_store(model_host: str) -> Chroma:
@@ -240,7 +240,7 @@ def create_document_vector_store(model_host: str) -> Chroma:
         )
         vector_store.add_documents(documents=[texts[i]])
     vector_store.persist()
-    return vector_store.as_retriever(search_kwargs={"k": 5})
+    return vector_store
 
 
 def load_document_vector_store(model_host: str) -> Chroma:
@@ -263,7 +263,7 @@ def load_document_vector_store(model_host: str) -> Chroma:
         embedding_function=embeddings,
         persist_directory=persist_directory,
     )
-    return vector_store.as_retriever(search_kwargs={"k": 5})
+    return vector_store
 
 
 def create_llm(model: str) -> ChatOpenAI | HuggingFaceHub:
@@ -306,10 +306,11 @@ def create_main_prompt(model_host: str) -> str:
     - Eğer sorulan soru doğrudan TOBB ETÜ (TOBB Ekonomi ve Teknoloji Üniversitesi) ile ilgili değilse
      "Üzgünüm, bu soru TOBB ETÜ ile ilgili olmadığından cevaplayamıyorum. Lütfen başka bir soru sormayı
       deneyin." diye yanıt vermelisin ve başka herhangi bir şey söylememelisin.
-    - Eğer sorulan sorunun yanıtı sana verilen bağlamda bulunmuyorsa kesinlikle kendi bilgilerini kullanarak bir cevap üretme, sadece
+    - Eğer sorulan sorunun yanıtı sana verilen bağlamda veya sohbet geçmişinde bulunmuyorsa kesinlikle kendi bilgilerini
+     kullanarak bir cevap üretme, sadece
      "Üzgünüm, bu soruya dair bir bilgim yok. Lütfen başka bir soru sormayı
       deneyin." diye yanıt vermelisin ve başka herhangi bir şey söylememelisin.
-    geçmişinde bu sorulara ait bir cevap yoksa
+    - Soru türkçe anlamlı bir cümle değilse soruyu türkçe en yakın anlamlı soruya çevirip öyle cevap vermelisin.
     - Sen Türkçe konuşan bir botsun. Soru Türkçe ise her zaman Türkçe cevap vermelisin.
     - If the question is in English, then answer in English. If the question is Turkish, then answer in Turkish.
     - Sen çok yardımsever, nazik, gerçek dünyaya ait bilgilere dayalı olarak soru cevaplayan bir sohbet botusun.
@@ -491,7 +492,7 @@ def main():
                     results = search_web(query)
 
                 with st.spinner("Toplanan bilgiler derleniyor"):
-                    retriever, urls = create_query_vector_store(
+                    vector_store, urls = create_query_vector_store(
                         model_host, results
                     )
             elif choice == "Hazır dokümanlar ile":
@@ -499,16 +500,17 @@ def main():
                     with st.spinner(
                         "TOBB ETÜ'ye ait geçmiş tarihte taranmış sayfalar yükleniyor"
                     ):
-                        retriever = load_document_vector_store(model_host)
+                        vector_store = load_document_vector_store(model_host)
                 else:
                     with st.spinner(
                         "TOBB ETÜ'ye ait 200e yakın sayfa taranıyor ve işleniyor"
                     ):
-                        retriever = create_document_vector_store(model_host)
+                        vector_store = create_document_vector_store(model_host)
 
             with st.spinner("Soru cevaplanıyor"):
                 llm = create_llm(model)
                 prompt_template = create_main_prompt(model_host)
+                retriever = vector_store.as_retriever(search_kwargs={"k": 3})
                 qa_chain = create_retrieval_qa(llm, prompt_template, retriever)
                 answer = qa_chain(
                     {"question": user_input}, return_only_outputs=True
